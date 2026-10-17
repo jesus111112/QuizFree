@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quiz de Higiene Industrial</title>
+<style>
+:root{--r:#e21b3c;--b:#1368ce;--y:#d89e00;--g:#26890c;--bg:#46178f}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;min-height:100vh;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;background:var(--bg);color:#fff;padding:16px;display:flex;justify-content:center}
+section{width:100%;max-width:880px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+h1{font-size:clamp(1.6rem,5vw,2.4rem);margin:.4em 0 0}
+h2,h3{margin:.2em 0}
+.card{background:#fff;color:#222;border-radius:10px;padding:16px;width:100%}
+.small{font-size:.85rem;opacity:.8;word-break:break-all}
+button,input{font:inherit}
+button{border:0;border-radius:8px;padding:14px 24px;font-weight:700;font-size:1.1rem;cursor:pointer;background:#fff;color:var(--bg);box-shadow:0 4px 0 rgba(0,0,0,.28)}
+button:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.28)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid #ffd23f;outline-offset:2px}
+.primary{background:var(--g);color:#fff}
+input{width:100%;max-width:360px;padding:14px;border:0;border-radius:8px;font-size:1.3rem;text-align:center}
+#qr{display:flex;justify-content:center;padding:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chip{background:rgba(255,255,255,.18);padding:6px 12px;border-radius:20px;font-weight:700}
+.top{display:flex;justify-content:space-between;align-items:center;width:100%;gap:10px}
+.timer{background:#fff;color:var(--bg);border-radius:50%;width:56px;height:56px;display:grid;place-items:center;font-size:1.6rem}
+.qbox{background:#fff;color:#222;border-radius:8px;padding:18px;width:100%;font-size:clamp(1.2rem,3.6vw,1.8rem);font-weight:700}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.o{position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;padding:16px;border-radius:8px;color:#fff;text-align:left;font-weight:700;font-size:1.05rem;min-height:84px;border:0;box-shadow:0 4px 0 rgba(0,0,0,.28)}
+.o0{background:var(--r)}.o1{background:var(--b)}.o2{background:var(--y)}.o3{background:var(--g)}
+.o .sh{font-size:1.6rem;z-index:1}.o .tx{flex:1;z-index:1}.o .ct{z-index:1;font-size:1.3rem}
+.fill{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(0,0,0,.28);transition:width .3s}
+.dim{opacity:.3}
+.chip.o0,.chip.o1,.chip.o2,.chip.o3{min-height:0;box-shadow:none;font-size:1rem;padding:6px 12px;border-radius:20px}
+.row{display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #ddd;text-align:left}
+#p-q .opts{grid-template-columns:1fr}
+#p-q .o{min-height:96px;font-size:1.15rem;width:100%}
+#p-r.good{background:var(--g)}#p-r.bad{background:var(--r)}
+#p-r{border-radius:12px;padding:28px 16px;min-height:60vh;justify-content:center}
+.big{font-size:3rem;font-weight:700}
+@media(max-width:560px){.opts{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.fill{transition:none}}
+</style>
+</head>
+<body>
+
+<!-- ============ ANFITRIÓN ============ -->
+<section id="h-lobby" hidden>
+  <h1>Quiz de Higiene Industrial</h1>
+  <div class="card">
+    <p><b>Escanea el código para entrar</b></p>
+    <div id="qr"></div>
+    <p id="h-url" class="small"></p>
+    <div id="h-file" hidden>
+      <p>Abriste el archivo desde tu computadora, y los celulares no podrán entrar así. Sube este archivo a un hosting (GitHub Pages, Netlify…) y pega aquí su dirección:</p>
+      <input id="base" placeholder="https://tu-sitio.com/quiz.html">
+    </div>
+  </div>
+  <h2><span id="h-n">0</span> en la sala</h2>
+  <div id="h-pl" class="chips"></div>
+  <button id="h-start" class="primary" disabled>Iniciar quiz</button>
+  <p id="h-err"></p>
+</section>
+
+<section id="h-game" hidden>
+  <div class="top"><b id="h-title"></b><span id="h-ans"></span><b id="h-time" class="timer">20</b></div>
+  <div class="qbox" id="h-q"></div>
+  <div class="opts" id="h-opts"></div>
+  <div class="chips" id="h-chips"></div>
+  <div class="card" id="h-lb" hidden></div>
+  <button id="h-next" class="primary">Cerrar pregunta</button>
+</section>
+
+<section id="h-end" hidden>
+  <h1>Resultados finales</h1>
+  <div class="card" id="h-final"></div>
+  <button id="h-csv" class="primary">Descargar resultados (CSV)</button>
+  <p class="small">Una copia también quedó guardada en este navegador.</p>
+</section>
+
+<!-- ============ JUGADOR ============ -->
+<section id="p-join" hidden>
+  <h1>Quiz de Higiene Industrial</h1>
+  <input id="p-name" placeholder="Tu nombre" maxlength="20" autocomplete="name">
+  <button id="p-go">Entrar</button>
+  <p id="p-msg"></p>
+</section>
+<section id="p-wait" hidden><h1>Ya estás dentro</h1><p>Espera a que el anfitrión inicie el quiz.</p></section>
+<section id="p-q" hidden>
+  <b id="p-qn"></b>
+  <div class="qbox" id="p-q-t"></div>
+  <div class="opts" id="p-opts"></div>
+</section>
+<section id="p-sent" hidden><h1>Respuesta enviada</h1><p>Espera a que termine la pregunta.</p></section>
+<section id="p-r" hidden>
+  <div class="big" id="p-rt"></div>
+  <div class="big" id="p-rp"></div>
+  <p id="p-ri"></p>
+  <p>Espera la siguiente pregunta.</p>
+</section>
+<section id="p-end" hidden><h1>Fin del quiz</h1><p id="p-ei" class="big"></p></section>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// Orden de colores/formas: 0 rojo ▲, 1 azul ◆, 2 amarillo ●, 3 verde ■ (c = índice de la correcta)
+const Q=[
+{q:"La higiene industrial es la disciplina que…",o:["reconoce, evalúa y controla los factores ambientales en el trabajo","cuida a los trabajadores para que no se lastimen","te dice la hora del break","protege tus derechos como trabajador"],c:0},
+{q:"¿Qué es el control del ambiente?",o:["Es la organización de los trabajadores.","Es el mantenimiento de las herramientas.","Son las medidas que se utilizan para mantener las condiciones de un trabajo seguro.","Es la limpieza de las máquinas industriales."],c:2},
+{q:"¿Qué es la toxicología industrial?",o:["Es la rama que estudia los efectos dañinos ocasionados por químicos.","Es la rama que estudia la ergonomía de los procesos industriales.","Es la ciencia que estudia cómo se fabrican las máquinas de la industria.","Es la rama que se encarga de diseñar los espacios de las fábricas."],c:0},
+{q:"¿Qué son los riesgos industriales para la salud?",o:["Son las herramientas que se usan en las fábricas.","Son las reglas para fabricar productos.","Son las máquinas que ayudan a producir mercancías.","Son los peligros que existen en los lugares de trabajo."],c:3},
+{q:"¿Qué es el ruido industrial?",o:["Es la vibración que producen las herramientas.","Es un problema que puede causar pérdida auditiva irreversible.","Es la iluminación dentro de las fábricas.","Es la temperatura que tienen las máquinas."],c:1},
+{q:"Para la vibración industrial, ¿cuál es la norma aplicable?",o:["NOM-024-STPS-2001","NOM-026-STPS-2008","NOM-011-STPS-2001","NOM-002-STPS-2010"],c:0},
+{q:"Para el ruido industrial, ¿cuál es la norma aplicable?",o:["NOM-017-STPS-2008","NOM-026-STPS-2008","NOM-011-STPS-2001","NOM-002-STPS-2010"],c:2},
+{q:"¿De qué se encarga Medicina Ocupacional y Enfermedades de Trabajo?",o:["Se encarga de reparar máquinas industriales.","Previene, diagnostica y trata enfermedades relacionadas con el trabajo.","Se encarga de fabricar herramientas de trabajo.","Se encarga de administrar los recursos de una empresa."],c:1},
+{q:"¿Qué es la vibración?",o:["Es el ruido que producen las máquinas.","Es el calor que generan los motores.","Es un agente físico generado por los ruidos del equipo.","Es la luz que emiten las herramientas."],c:2}
+];
+const LIMIT=20; // segundos por pregunta
+const L='▲◆●■';
+const $=s=>document.querySelector(s);
+const show=id=>document.querySelectorAll('section').forEach(s=>s.hidden=s.id!==id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const room=new URLSearchParams(location.search).get('room');
+room?player():host();
+
+/* ---------------- ANFITRIÓN ---------------- */
+function host(){
+  const id='hig'+Math.random().toString(36).slice(2,7);
+  const players={};
+  let qi=-1,qStart=0,timer=null,open=false,lastQ=null;
+  const peer=new Peer(id);
+  const online=()=>Object.values(players).filter(p=>p.conn&&p.conn.open);
+  const ranking=()=>Object.values(players).sort((a,b)=>b.score-a.score);
+  const send=m=>online().forEach(p=>p.conn.send(m));
+
+  const base=()=>location.protocol==='file:'?$('#base').value.trim().split('?')[0].split('#')[0]:location.origin+location.pathname;
+  function drawQR(){
+    const el=$('#qr');el.innerHTML='';
+    const b=base();
+    if(!b){$('#h-url').textContent='';return;}
+    const u=b+'?room='+id;
+    $('#h-url').textContent=u;
+    new QRCode(el,{text:u,width:240,height:240});
+  }
+  peer.on('open',()=>{
+    show('h-lobby');
+    if(location.protocol==='file:'){$('#h-file').hidden=false;$('#base').oninput=drawQR;}
+    drawQR();
+  });
+  peer.on('error',e=>{show('h-lobby');$('#h-err').textContent='Error de conexión ('+e.type+'). Recarga la página.';});
+  peer.on('disconnected',()=>peer.reconnect());
+
+  function renderPlayers(){
+    const on=online();
+    $('#h-n').textContent=on.length;
+    $('#h-pl').innerHTML=on.map(p=>`<span class="chip">${esc(p.name)}</span>`).join('');
+    $('#h-start').disabled=on.length===0;
+  }
+  peer.on('connection',conn=>{
+    conn.on('data',m=>{
+      if(m.t==='join'){
+        const k=String(m.name||'').trim().slice(0,20);
+        if(!k)return;
+        let p=players[k];
+        if(!p)p=players[k]={name:k,score:0,ans:[],cur:null};
+        if(p.conn&&p.conn!==conn&&p.conn.open)p.conn.close();
+        p.conn=conn;conn.pk=k;
+        conn.send({t:'joined'});
+        if(open)conn.send(lastQ);
+        renderPlayers();if(open)live();
+      }else if(m.t==='a'&&conn.pk&&players[conn.pk].conn===conn){
+        answer(players[conn.pk],m.c);
+      }
+    });
+    conn.on('close',()=>{renderPlayers();if(open)live();});
+  });
+
+  $('#h-start').onclick=startQ;
+  $('#h-next').onclick=()=>open?closeQ():startQ();
+
+  function startQ(){
+    qi++;
+    if(qi>=Q.length)return end();
+    const q=Q[qi];
+    open=true;qStart=Date.now();
+    Object.values(players).forEach(p=>p.cur=null);
+    lastQ={t:'q',i:qi,n:Q.length,q:q.q,o:q.o};
+    send(lastQ);
+    show('h-game');
+    $('#h-title').textContent=`Pregunta ${qi+1} de ${Q.length}`;
+    $('#h-q').textContent=q.q;
+    $('#h-opts').innerHTML=q.o.map((t,i)=>`<div class="o o${i}"><div class="fill"></div><span class="sh">${L[i]}</span><span class="tx">${esc(t)}</span><b class="ct">0</b></div>`).join('');
+    $('#h-lb').hidden=true;
+    $('#h-next').textContent='Cerrar pregunta';
+    live();
+    clearInterval(timer);timer=setInterval(tick,250);tick();
+  }
+  function tick(){
+    const left=LIMIT-(Date.now()-qStart)/1000;
+    $('#h-time').textContent=Math.max(0,Math.ceil(left));
+    if(left<=0)closeQ();
+  }
+  function live(){
+    const ps=Object.values(players),cnt=[0,0,0,0];
+    ps.forEach(p=>{if(p.cur)cnt[p.cur.c]++;});
+    const tot=cnt.reduce((a,b)=>a+b,0);
+    document.querySelectorAll('#h-opts .o').forEach((e,i)=>{
+      e.querySelector('.ct').textContent=cnt[i];
+      e.querySelector('.fill').style.width=(tot?cnt[i]/tot*100:0)+'%';
+    });
+    $('#h-ans').textContent=`${tot} de ${online().length} respondieron`;
+    $('#h-chips').innerHTML=ps.map(p=>`<span class="chip ${p.cur?'o'+p.cur.c:''}">${esc(p.name)}${p.cur?' '+L[p.cur.c]:''}</span>`).join('');
+  }
+  function answer(p,c){
+    if(!open||p.cur||![0,1,2,3].includes(c))return;
+    const t=(Date.now()-qStart)/1000,ok=c===Q[qi].c;
+    const pts=ok?Math.round(1000*(1-Math.min(t/LIMIT,1)/2)):0;
+    p.cur={c,ok,pts};
+    p.ans[qi]={c,ok,t:+t.toFixed(1)};
+    p.score+=pts;
+    p.conn.send({t:'ack'});
+    live();
+    if(online().every(x=>x.cur))closeQ();
+  }
+  function closeQ(){
+    if(!open)return;
+    open=false;clearInterval(timer);
+    const q=Q[qi],ps=Object.values(players);
+    ps.forEach(p=>{if(!p.cur)p.ans[qi]={c:null,ok:false,t:null};});
+    const rk=ranking();
+    document.querySelectorAll('#h-opts .o').forEach((e,i)=>{
+      if(i===q.c)e.querySelector('.ct').textContent+=' ✓';else e.classList.add('dim');
+    });
+    $('#h-lb').innerHTML='<h3>Posiciones</h3>'+rk.slice(0,5).map((p,i)=>`<div class="row"><span>${i+1}. ${esc(p.name)}</span><b>${p.score}</b></div>`).join('');
+    $('#h-lb').hidden=false;
+    online().forEach(p=>p.conn.send({t:'r',ok:!!(p.cur&&p.cur.ok),pts:p.cur?p.cur.pts:0,score:p.score,rank:rk.indexOf(p)+1,of:rk.length,answered:!!p.cur,correct:q.o[q.c]}));
+    $('#h-next').textContent=qi+1>=Q.length?'Ver resultados finales':'Siguiente pregunta';
+  }
+  function end(){
+    const rk=ranking();
+    show('h-end');
+    $('#h-final').innerHTML=rk.map((p,i)=>`<div class="row"><span>${i+1}. ${esc(p.name)} <small>(${p.ans.filter(a=>a&&a.ok).length}/${Q.length} aciertos)</small></span><b>${p.score}</b></div>`).join('');
+    online().forEach(p=>p.conn.send({t:'end',rank:rk.indexOf(p)+1,of:rk.length,score:p.score}));
+    try{localStorage.setItem('quiz_resultados_'+new Date().toISOString(),JSON.stringify(rk.map(p=>({nombre:p.name,puntos:p.score,respuestas:p.ans}))));}catch(e){}
+    $('#h-csv').onclick=csv;
+    csv();
+  }
+  function csv(){
+    const rk=ranking();
+    const hdr=['Posición','Nombre','Puntos','Aciertos',...Q.map((_,i)=>'P'+(i+1))];
+    const rows=rk.map((p,i)=>[i+1,p.name,p.score,p.ans.filter(a=>a&&a.ok).length,...Q.map((_,j)=>{const a=p.ans[j];return !a||a.c==null?'Sin respuesta':L[a.c]+(a.ok?' ✓':' ✗');})]);
+    rows.push(['','Respuesta correcta','','',...Q.map(q=>L[q.c])]);
+    const txt=[hdr,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob(['\ufeff'+txt],{type:'text/csv;charset=utf-8'}));
+    a.download='resultados-quiz.csv';a.click();
+  }
+}
+
+/* ---------------- JUGADOR ---------------- */
+function player(){
+  show('p-join');
+  let conn,peer,joined=false;
+  try{$('#p-name').value=localStorage.getItem('qname')||'';}catch(e){}
+  const fail=m=>{show('p-join');$('#p-go').disabled=false;$('#p-msg').textContent=m;};
+  const onMsg=m=>{
+    if(m.t==='joined'){joined=true;show('p-wait');}
+    else if(m.t==='q'){
+      $('#p-qn').textContent=`Pregunta ${m.i+1} de ${m.n}`;
+      $('#p-q-t').textContent=m.q;
+      $('#p-opts').innerHTML=m.o.map((t,i)=>`<button class="o o${i}" data-i="${i}"><span class="sh">${L[i]}</span><span class="tx">${esc(t)}</span></button>`).join('');
+      show('p-q');
+    }
+    else if(m.t==='ack')show('p-sent');
+    else if(m.t==='r'){
+      $('#p-r').className=m.ok?'good':'bad';
+      $('#p-rt').textContent=m.answered?(m.ok?'¡Correcto!':'Incorrecto'):'Se acabó el tiempo';
+      $('#p-rp').textContent=m.ok?'+'+m.pts:'';
+      $('#p-ri').innerHTML=`Respuesta correcta: <b>${esc(m.correct)}</b><br>Total: ${m.score} puntos · Lugar ${m.rank} de ${m.of}`;
+      show('p-r');
+    }
+    else if(m.t==='end'){$('#p-ei').textContent=`Lugar ${m.rank} de ${m.of} · ${m.score} puntos`;show('p-end');}
+  };
+  $('#p-opts').onclick=e=>{
+    const b=e.target.closest('button');
+    if(!b||!conn)return;
+    conn.send({t:'a',c:+b.dataset.i});
+    show('p-sent');
+  };
+  $('#p-go').onclick=()=>{
+    const name=$('#p-name').value.trim();
+    if(!name)return;
+    try{localStorage.setItem('qname',name);}catch(e){}
+    $('#p-go').disabled=true;$('#p-msg').textContent='Conectando…';
+    joined=false;
+    peer=new Peer();
+    peer.on('error',e=>fail('No se pudo conectar ('+e.type+'). Confirma que el anfitrión tenga la sala abierta.'));
+    peer.on('open',()=>{
+      conn=peer.connect(room,{reliable:true});
+      conn.on('open',()=>conn.send({t:'join',name}));
+      conn.on('data',onMsg);
+      conn.on('close',()=>fail('Se perdió la conexión. Toca Entrar para volver a la sala.'));
+      setTimeout(()=>{if(!joined)fail('No hay respuesta de la sala. Revisa tu internet y vuelve a intentar.');},12000);
+    });
+  };
+}
+</script>
+</body>
+</html>
