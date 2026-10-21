@@ -3106,121 +3106,175 @@ VALENZUELA AYALA JESUS</div></div></div></div></div></section>
 </main>
 <div class="deck-pager" aria-hidden="true"></div>
 
-<!-- CONTROL REMOTO PEERJS: PRESENTACIÓN -->
+<!-- CONTROL REMOTO PEERJS: PRESENTACIÓN (con código QR) -->
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 (function () {
   'use strict';
 
-  const ROOM_ID = 'recocido-slides-2026';
+  // Nombre del archivo del control remoto (debe estar en la misma carpeta
+  // que esta presentación, p. ej. /QuizFree/control-remoto.html)
+  const CONTROL_PAGE = 'control-remoto.html';
+
+  // ID de sala aleatorio por sesión: evita choques entre pestañas
+  // y que otra persona controle tu presentación por adivinar el ID.
+  let ROOM_ID = null;
+  try { ROOM_ID = sessionStorage.getItem('recocido-room'); } catch (e) {}
+  if (!ROOM_ID) {
+    ROOM_ID = 'recocido-' + Math.random().toString(36).slice(2, 10);
+    try { sessionStorage.setItem('recocido-room', ROOM_ID); } catch (e) {}
+  }
+
   let peer = null;
+  let qrBuilt = false;
 
-  // Navegación compatible con Reveal.js y con presentaciones
-  // que utilicen un número de diapositiva en el hash.
+  // ---------- Navegación ----------
   function navigate(action, slide) {
-    if (window.Reveal &&
-        typeof window.Reveal.next === 'function') {
-
-      if (action === 'next') {
-        window.Reveal.next();
-        return;
-      }
-
-      if (action === 'prev') {
-        window.Reveal.prev();
-        return;
-      }
-
+    if (window.Reveal && typeof window.Reveal.next === 'function') {
+      if (action === 'next') { window.Reveal.next(); return; }
+      if (action === 'prev') { window.Reveal.prev(); return; }
       if (action === 'goto') {
-        const target = Number(slide);
-
-        if (Number.isInteger(target) && target >= 1) {
-          // Reveal.js utiliza índices que empiezan en cero.
-          window.Reveal.slide(target - 1, 0);
-        }
+        const t = Number(slide);
+        if (Number.isInteger(t) && t >= 1) window.Reveal.slide(t - 1, 0);
         return;
       }
     }
-
-    // Alternativa para presentaciones que usan #1, #2, #3...
-    const current = parseInt(
-      location.hash.replace(/^#/, ''), 10
-    );
-
-    const currentSlide =
-      Number.isInteger(current) && current >= 1 ? current : 1;
-
-    if (action === 'next') {
-      location.hash = String(currentSlide + 1);
-    } else if (action === 'prev') {
-      location.hash = String(Math.max(1, currentSlide - 1));
-    } else if (action === 'goto') {
-      const target = Number(slide);
-
-      if (Number.isInteger(target) && target >= 1) {
-        location.hash = String(target);
-      }
+    const cur = parseInt(location.hash.replace(/^#/, ''), 10);
+    const n = Number.isInteger(cur) && cur >= 1 ? cur : 1;
+    if (action === 'next') location.hash = String(n + 1);
+    else if (action === 'prev') location.hash = String(Math.max(1, n - 1));
+    else if (action === 'goto') {
+      const t = Number(slide);
+      if (Number.isInteger(t) && t >= 1) location.hash = String(t);
     }
+  }
+
+  // ---------- PeerJS ----------
+  function setStatus(text, ok) {
+    const el = document.getElementById('rc-status');
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = ok ? '#4ade80' : '#facc15';
   }
 
   function startPresentationPeer() {
     if (peer && !peer.destroyed) return;
-
     peer = new Peer(ROOM_ID);
 
     peer.on('open', function (id) {
       console.log('Presentación registrada en PeerJS:', id);
+      setStatus('Esperando al teléfono…', false);
     });
 
     peer.on('connection', function (conn) {
-      console.log('Control remoto detectado');
-
       conn.on('open', function () {
-        console.log('Canal de control conectado');
-
-        conn.send({
-          type: 'ready',
-          message: 'Presentación conectada'
-        });
+        setStatus('✔ Teléfono conectado', true);
+        conn.send({ type: 'ready', message: 'Presentación conectada' });
       });
-
       conn.on('data', function (msg) {
         if (!msg || typeof msg !== 'object') return;
-
-        if (msg.type === 'next' || msg.type === 'prev') {
-          navigate(msg.type);
-        } else if (msg.type === 'goto') {
-          navigate('goto', msg.slide);
-        } else if (msg.type === 'ping') {
-          conn.send({ type: 'pong' });
-        }
+        if (msg.type === 'next' || msg.type === 'prev') navigate(msg.type);
+        else if (msg.type === 'goto') navigate('goto', msg.slide);
+        else if (msg.type === 'ping') conn.send({ type: 'pong' });
       });
+      conn.on('error', function (err) { console.error('Error en canal:', err); });
+      conn.on('close', function () { setStatus('Teléfono desconectado', false); });
+    });
 
-      conn.on('error', function (err) {
-        console.error('Error en el canal de control:', err);
-      });
-
-      conn.on('close', function () {
-        console.log('El control remoto se desconectó');
-      });
+    peer.on('disconnected', function () {
+      // Reconecta al servidor de señalización si se cae
+      if (peer && !peer.destroyed) peer.reconnect();
     });
 
     peer.on('error', function (err) {
       console.error('Error PeerJS en presentación:', err.type, err);
+      setStatus('Error: ' + err.type, false);
+    });
+  }
 
-      if (err.type === 'unavailable-id') {
-        console.error(
-          'El ID de sala ya está ocupado. Cierra las otras ' +
-          'pestañas de la presentación y vuelve a intentarlo.'
-        );
+  // ---------- Interfaz del QR ----------
+  function controlUrl() {
+    const url = new URL(CONTROL_PAGE, location.href);
+    url.search = '';
+    url.hash = '';
+    url.searchParams.set('room', ROOM_ID);
+    return url.toString();
+  }
+
+  function buildUI() {
+    const btn = document.createElement('button');
+    btn.id = 'rc-toggle';
+    btn.type = 'button';
+    btn.textContent = '📱 Control remoto';
+    btn.style.cssText =
+      'position:fixed;right:16px;bottom:16px;z-index:99998;' +
+      'padding:10px 14px;border:0;border-radius:999px;cursor:pointer;' +
+      'font:600 14px system-ui,sans-serif;background:#1f2937;color:#fff;' +
+      'box-shadow:0 4px 14px rgba(0,0,0,.35);opacity:.85;';
+
+    const panel = document.createElement('div');
+    panel.id = 'rc-panel';
+    panel.style.cssText =
+      'position:fixed;inset:0;z-index:99999;display:none;' +
+      'align-items:center;justify-content:center;' +
+      'background:rgba(0,0,0,.7);font-family:system-ui,sans-serif;';
+    panel.innerHTML =
+      '<div style="background:#fff;color:#111;border-radius:16px;' +
+      'padding:24px;max-width:340px;width:90%;text-align:center;">' +
+      '<h2 style="margin:0 0 6px;font-size:20px;">Control remoto</h2>' +
+      '<p style="margin:0 0 14px;font-size:14px;color:#555;">' +
+      'Escanea el código con la cámara de tu teléfono</p>' +
+      '<div id="rc-qr" style="display:inline-block;padding:10px;background:#fff;"></div>' +
+      '<p id="rc-status" style="margin:12px 0 4px;font-weight:600;font-size:14px;">Iniciando…</p>' +
+      '<p id="rc-url" style="margin:0 0 14px;font-size:11px;color:#777;word-break:break-all;"></p>' +
+      '<button id="rc-close" type="button" style="padding:8px 18px;border:0;' +
+      'border-radius:8px;background:#111;color:#fff;font-size:14px;cursor:pointer;">Cerrar</button>' +
+      '</div>';
+
+    document.body.appendChild(btn);
+    document.body.appendChild(panel);
+
+    function open() {
+      panel.style.display = 'flex';
+      if (!qrBuilt && window.QRCode) {
+        const url = controlUrl();
+        new QRCode(document.getElementById('rc-qr'), {
+          text: url,
+          width: 220,
+          height: 220,
+          colorDark: '#000000',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+        document.getElementById('rc-url').textContent = url;
+        qrBuilt = true;
+      }
+    }
+    function close() { panel.style.display = 'none'; }
+
+    btn.addEventListener('click', open);
+    panel.addEventListener('click', function (e) { if (e.target === panel) close(); });
+    document.getElementById('rc-close').addEventListener('click', close);
+
+    // Atajo: tecla "Q" abre/cierra el QR
+    document.addEventListener('keydown', function (e) {
+      if (e.key && e.key.toLowerCase() === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        panel.style.display === 'flex' ? close() : open();
       }
     });
   }
 
-  if (window.Peer) {
-    startPresentationPeer();
+  function init() {
+    buildUI();
+    if (window.Peer) startPresentationPeer();
+    else console.error('No se pudo cargar la biblioteca PeerJS.');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    console.error('No se pudo cargar la biblioteca PeerJS.');
+    init();
   }
 })();
 </script>
