@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Control remoto – Recocido</title>
+<title>Control remoto</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{
@@ -14,90 +14,69 @@
     display:flex;
     flex-direction:column;
     align-items:center;
-    padding:20px 16px;
+    justify-content:center;
+    padding:24px 16px;
   }
-  h1{font-size:1.4rem;margin-bottom:8px;text-align:center}
-  .status{font-size:.9rem;opacity:.7;margin-bottom:20px;text-align:center}
-  #qr{background:#fff;padding:12px;border-radius:12px;margin-bottom:24px}
-  .btns{display:flex;flex-direction:column;gap:14px;width:100%;max-width:320px}
+  h1{font-size:1.5rem;margin-bottom:6px}
+  .status{font-size:.95rem;margin-bottom:28px;opacity:.8}
+  .connected{color:#4ade80}
+  .waiting{color:#fbbf24}
+  .btns{display:flex;flex-direction:column;gap:14px;width:100%;max-width:300px}
   button{
-    font-size:1.3rem;
+    font-size:1.35rem;
     font-weight:700;
-    padding:18px;
+    padding:20px;
     border:none;
-    border-radius:14px;
+    border-radius:16px;
     cursor:pointer;
-    color:#1b1a2e;
   }
-  .next{background:#e4572e}
-  .prev{background:#f08a5d}
-  .goto{background:#4a90d9;color:#fff}
+  .next{background:#e4572e;color:#fff}
+  .prev{background:#f08a5d;color:#1b1a2e}
+  .goto{background:#3b82f6;color:#fff}
   input{
     font-size:1.2rem;
-    padding:12px;
-    border-radius:10px;
+    padding:14px;
+    border-radius:12px;
     border:none;
     text-align:center;
     width:100%;
     margin-bottom:8px;
   }
-  .row{display:flex;gap:10px}
-  .row button{flex:1}
-  .connected{color:#4ade80}
-  .waiting{color:#fbbf24}
 </style>
 </head>
 <body>
   <h1>Control Remoto</h1>
-  <p class="status" id="status">Conectando…</p>
-
-  <div id="qr"></div>
+  <p class="status waiting" id="status">Conectando…</p>
 
   <div class="btns">
     <button class="prev" id="btn-prev">← Anterior</button>
     <button class="next" id="btn-next">Siguiente →</button>
 
-    <div style="margin-top:10px">
-      <input type="number" id="slide-num" placeholder="Nº diapositiva" min="1">
+    <div style="margin-top:12px">
+      <input type="number" id="slide-num" placeholder="Nº de diapositiva" min="1">
       <button class="goto" id="btn-goto">Ir a diapositiva</button>
     </div>
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 (() => {
-  // Debe ser el mismo ID que pusiste en la presentación
-  const ROOM_ID = 'recocido-slides-2026';
-
+  const ROOM_ID = 'recocido-slides-2026';  // Debe ser igual que en la presentación
   const status = document.getElementById('status');
   let conn = null;
-
-  // Generar QR que apunta a este mismo control (opcional)
-  // En realidad el QR no es necesario si abres el archivo directo en el celular,
-  // pero lo dejamos por si quieres compartirlo.
-  const url = location.href;
-  new QRCode(document.getElementById('qr'), {
-    text: url,
-    width: 180,
-    height: 180
-  });
 
   const peer = new Peer();
 
   peer.on('open', () => {
-    status.textContent = 'Conectando con la presentación…';
-    status.className = 'status waiting';
-
     conn = peer.connect(ROOM_ID, { reliable: true });
 
     conn.on('open', () => {
-      status.textContent = '✓ Conectado – ya puedes controlar';
+      status.textContent = '✓ Conectado';
       status.className = 'status connected';
     });
 
     conn.on('close', () => {
-      status.textContent = 'Desconectado';
+      status.textContent = 'Desconectado – recarga la página';
       status.className = 'status waiting';
     });
   });
@@ -110,7 +89,7 @@
     if (conn && conn.open) {
       conn.send({ type, ...extra });
     } else {
-      alert('Aún no está conectado a la presentación');
+      alert('Todavía no está conectado');
     }
   }
 
