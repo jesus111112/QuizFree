@@ -1,215 +1,244 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuizFree - Control Remoto</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 24px;
+  min-height: 100vh;
+  background: #101827;
+  color: white;
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.control {
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  background: #1e293b;
+  padding: 25px;
+  border-radius: 22px;
+}
+
+h1 {
+  margin-top: 0;
+  color: #60a5fa;
+}
+
+#status {
+  color: #fbbf24;
+  font-size: 14px;
+  margin: 18px 0;
+}
+
+#status.connected {
+  color: #4ade80;
+}
+
+button, input {
+  width: 100%;
+  padding: 16px;
+  margin: 7px 0;
+  border: 0;
+  border-radius: 12px;
+  font-size: 16px;
+}
+
+button {
+  background: #2563eb;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:active {
+  transform: scale(.98);
+}
+
+.secundario {
+  background: #334155;
+}
+
+input {
+  background: #0f172a;
+  color: white;
+  border: 1px solid #475569;
+  text-align: center;
+}
+
+p {
+  color: #94a3b8;
+  font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="control">
+  <h1>🎮 QuizFree</h1>
+  <h3>Control de presentación</h3>
+
+  <div id="status">Conectando...</div>
+
+  <button id="btn-prev" class="secundario">
+    ◀ Anterior
+  </button>
+
+  <button id="btn-next">
+    Siguiente ▶
+  </button>
+
+  <hr style="border-color:#334155;margin:22px 0">
+
+  <input
+    id="slide-num"
+    type="number"
+    min="1"
+    placeholder="Número de diapositiva"
+  >
+
+  <button id="btn-goto" class="secundario">
+    Ir a diapositiva
+  </button>
+
+  <p>Mantén abierta la presentación en otra pestaña.</p>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
 <script>
 (() => {
-  'use strict';
-
   const ROOM_ID = 'recocido-slides-2026';
 
   const status = document.getElementById('status');
-  const btnNext = document.getElementById('btn-next');
-  const btnPrev = document.getElementById('btn-prev');
-  const btnGoto = document.getElementById('btn-goto');
-  const slideNum = document.getElementById('slide-num');
-
   let peer = null;
   let conn = null;
   let retryTimer = null;
-  let connecting = false;
   let stopped = false;
 
-  function setStatus(message, state) {
-    if (!status) return;
+  function showStatus(message, connected = false) {
     status.textContent = message;
-    status.className = 'status ' + state;
-  }
-
-  function scheduleReconnect(delay = 2500) {
-    if (stopped || retryTimer !== null) return;
-
-    retryTimer = setTimeout(() => {
-      retryTimer = null;
-      connect();
-    }, delay);
-  }
-
-  function closeConnection() {
-    const oldConn = conn;
-    conn = null;
-
-    if (oldConn) {
-      try {
-        oldConn.close();
-      } catch (e) {
-        console.warn('Error cerrando conexión:', e);
-      }
-    }
+    status.className = connected ? 'connected' : '';
   }
 
   function connect() {
-    if (stopped || connecting) return;
-    if (conn && conn.open) return;
+    if (stopped || peer) return;
 
-    connecting = true;
-    setStatus('Conectando con la presentación…', 'waiting');
+    showStatus('Conectando con la presentación...');
 
-    closeConnection();
+    const p = new Peer();
+    peer = p;
 
-    // No se crea otro Peer mientras exista uno activo.
-    if (peer && !peer.destroyed) {
-      try {
-        peer.destroy();
-      } catch (e) {
-        console.warn(e);
-      }
-    }
+    p.on('open', () => {
+      if (peer !== p || stopped) return;
 
-    peer = null;
-    const thisPeer = new Peer();
+      const c = p.connect(ROOM_ID, { reliable: true });
+      conn = c;
 
-    peer = thisPeer;
-
-    thisPeer.on('open', () => {
-      if (peer !== thisPeer || stopped) return;
-
-      console.log('Control listo:', thisPeer.id);
-
-      const thisConn = thisPeer.connect(ROOM_ID, {
-        reliable: true,
-        serialization: 'json'
+      c.on('open', () => {
+        if (conn !== c) return;
+        showStatus('✓ ¡Conectado!', true);
       });
 
-      conn = thisConn;
-
-      thisConn.on('open', () => {
-        if (conn !== thisConn || stopped) return;
-
-        connecting = false;
-        setStatus('Conectado al control de presentación', 'connected');
-
-        console.log('Conexión establecida con la presentación');
-      });
-
-      thisConn.on('data', (msg) => {
-        if (conn !== thisConn || !msg) return;
-
-        if (msg.type === 'ready') {
-          setStatus('✓ Presentación lista', 'connected');
-        } else if (msg.type === 'pong') {
-          console.log('Presentación responde correctamente');
+      c.on('data', msg => {
+        if (msg && msg.type === 'ready') {
+          showStatus('✓ Presentación lista', true);
         }
       });
 
-      thisConn.on('close', () => {
-        if (conn !== thisConn || stopped) return;
-
+      c.on('close', () => {
+        if (conn !== c) return;
         conn = null;
-        connecting = false;
-        setStatus('Desconectado. Reconectando…', 'waiting');
-        scheduleReconnect();
+        reconnect();
       });
 
-      thisConn.on('error', (err) => {
-        console.error('Error de conexión:', err);
-        connecting = false;
-        setStatus('Error de conexión. Reintentando…', 'waiting');
-        scheduleReconnect();
+      c.on('error', () => {
+        if (conn !== c) return;
+        conn = null;
+        reconnect();
       });
     });
 
-    thisPeer.on('error', (err) => {
-      if (peer !== thisPeer || stopped) return;
+    p.on('error', err => {
+      if (peer !== p) return;
 
-      console.error('Error PeerJS:', err.type, err);
-
-      connecting = false;
-      closeConnection();
+      console.log('PeerJS:', err.type);
 
       if (err.type === 'peer-unavailable') {
-        setStatus('Presentación no encontrada. Reintentando…', 'waiting');
+        showStatus('Abre primero la presentación...');
       } else {
-        setStatus('Error: ' + err.type + '. Reintentando…', 'waiting');
+        showStatus('Reconectando...');
       }
 
-      // El Peer puede haber quedado inutilizable tras el error.
-      try {
-        if (!thisPeer.destroyed) thisPeer.destroy();
-      } catch (e) {
-        console.warn(e);
-      }
-
-      if (peer === thisPeer) peer = null;
-
-      scheduleReconnect(3000);
+      peer = null;
+      try { p.destroy(); } catch (e) {}
+      reconnect();
     });
+  }
 
-    thisPeer.on('disconnected', () => {
-      if (peer !== thisPeer || stopped) return;
+  function reconnect() {
+    if (stopped || retryTimer) return;
 
-      connecting = false;
-      setStatus('Conexión de señalización perdida…', 'waiting');
+    showStatus('Desconectado. Reintentando...');
 
-      try {
-        thisPeer.reconnect();
-      } catch (e) {
-        console.warn('No se pudo reconectar PeerJS:', e);
-        if (peer === thisPeer) peer = null;
-        scheduleReconnect();
-      }
-    });
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      peer = null;
+      connect();
+    }, 3000);
   }
 
   function send(type, extra = {}) {
     if (!conn || !conn.open) {
-      setStatus('Sin conexión. Espera la reconexión…', 'waiting');
+      showStatus('Espera a que se conecte...');
       return;
     }
 
-    try {
-      conn.send({ type, ...extra });
-    } catch (err) {
-      console.error('No se pudo enviar el comando:', err);
-      setStatus('Error al enviar. Reintentando…', 'waiting');
-    }
+    conn.send({ type, ...extra });
   }
 
-  if (!status || !btnNext || !btnPrev || !btnGoto || !slideNum) {
-    console.error(
-      'Faltan elementos HTML: status, btn-next, btn-prev, ' +
-      'btn-goto o slide-num.'
+  document.getElementById('btn-next').onclick =
+    () => send('next');
+
+  document.getElementById('btn-prev').onclick =
+    () => send('prev');
+
+  document.getElementById('btn-goto').onclick = () => {
+    const num = Number(
+      document.getElementById('slide-num').value
     );
-    return;
-  }
-
-  btnNext.addEventListener('click', () => send('next'));
-  btnPrev.addEventListener('click', () => send('prev'));
-
-  btnGoto.addEventListener('click', () => {
-    const num = Number(slideNum.value);
 
     if (!Number.isInteger(num) || num < 1) {
-      setStatus('Escribe un número de diapositiva válido.', 'waiting');
+      showStatus('Escribe un número válido.');
       return;
     }
 
     send('goto', { slide: num });
-  });
+  };
 
-  // Limpieza al abandonar el control remoto.
   window.addEventListener('pagehide', () => {
     stopped = true;
-
-    if (retryTimer !== null) {
-      clearTimeout(retryTimer);
-      retryTimer = null;
-    }
-
-    closeConnection();
-
-    if (peer && !peer.destroyed) {
-      peer.destroy();
-    }
+    if (retryTimer) clearTimeout(retryTimer);
+    if (peer && !peer.destroyed) peer.destroy();
   });
 
   connect();
 })();
 </script>
+
+</body>
+</html>
+```
