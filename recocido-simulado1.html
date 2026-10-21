@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recocido simulado · multijugador</title>
+<style>
+:root{--bg:#f6f1ea;--fg:#1b1a2e;--muted:#6b6880;--card:#ffffff;--line:#d9d2c4;--accent:#e4572e;--onaccent:#ffffff}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1a2e;--fg:#f6f1ea;--muted:#b9b4cc;--card:#27263f;--line:#3a3958;--accent:#f08a5d;--onaccent:#1b1a2e}}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;line-height:1.5}
+main{max-width:1000px;margin:0 auto;padding:24px 16px 48px}
+h1{font-family:Georgia,serif;font-weight:400;font-size:clamp(26px,5vw,42px);line-height:1.15;margin:0 0 6px}
+h2{font-family:Georgia,serif;font-weight:400;margin:28px 0 10px}
+p{margin:0 0 14px;color:var(--muted);font-size:17px}
+small{color:var(--muted);font-size:15px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px}
+canvas{display:block;width:100%;border-radius:10px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:14px 0}
+button{font:inherit;font-size:17px;font-weight:600;min-height:44px;padding:0 20px;border-radius:999px;border:2px solid var(--accent);background:transparent;color:var(--fg);cursor:pointer}
+button[aria-pressed="true"],button:hover{background:var(--accent);color:var(--onaccent)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+input{font:inherit;font-size:18px;min-height:44px;padding:0 14px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--fg);width:min(320px,100%);box-sizing:border-box}
+.knobrow{display:flex;align-items:center;gap:8px}
+.knob{width:170px;height:170px;touch-action:none;cursor:grab;border-radius:50%;user-select:none}
+.kt{font-size:17px;font-weight:600;min-width:150px}
+#qrbox{display:flex;align-items:center;gap:12px}
+#qr img{width:150px;height:150px;image-rendering:pixelated;border-radius:8px;display:block}
+#qrbox span{max-width:200px;font-size:15px;color:var(--muted)}
+.plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:14px}
+.pc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;cursor:pointer}
+.pc.off{opacity:.5}
+.pc b{display:inline-block;margin-top:6px}
+.ok{color:var(--accent);font-weight:700;margin-left:8px}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
+.mbox{background:var(--card);border-radius:16px;padding:16px;max-width:940px;width:100%;box-sizing:border-box}
+.mbox canvas{margin:10px 0}
+</style>
+</head>
+<body>
+<main>
+<div id="join" hidden>
+<h1>Recocido simulado</h1>
+<p>Escribe tu nombre para entrar al simulador.</p>
+<div class="row"><input id="nm" maxlength="30" placeholder="Tu nombre" autocomplete="off"><button id="go">Entrar</button></div>
+</div>
+
+<div id="app" hidden>
+<h1 id="ttl">Recocido simulado</h1>
+<p id="sub">El punto naranja busca el valle más bajo. Dibuja tu propio paisaje y ajusta la velocidad con la perilla.</p>
+<div class="card"><canvas id="c" aria-label="Paisaje de costo con un punto que busca el mínimo"></canvas></div>
+<div class="row">
+<button id="draw" aria-pressed="false">Dibujar</button>
+<button id="pause" aria-pressed="false">Pausa</button>
+<button id="reset">Resetear</button>
+<button id="grid" aria-pressed="false">Plano cartesiano</button>
+<button id="send" hidden>Enviar mi dibujo</button>
+</div>
+<div class="row" style="gap:24px">
+<div class="knobrow"><div class="knob" id="knob" role="slider" tabindex="0" aria-label="Velocidad del algoritmo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><svg id="kv" viewBox="0 0 200 200" width="170" height="170"></svg></div><div class="kt" id="kt"></div></div>
+<div id="qrbox" hidden><div id="qr"></div><span>Escanea el código con el celular para unirte.</span></div>
+</div>
+<small id="st"></small>
+
+<section id="host" hidden>
+<h2>Participantes</h2>
+<p id="none">Aún no se ha conectado nadie. Toca una miniatura para verla en grande.</p>
+<div class="plist" id="plist"></div>
+<button id="saveall">Guardar todos los dibujos</button>
+</section>
+</div>
+
+<div id="modal" hidden><div class="mbox"><b id="mname"></b><canvas id="mc" width="900" height="450"></canvas><button id="mclose">Cerrar</button></div></div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+(()=>{
+const $=id=>document.getElementById(id),HID=new URLSearchParams(location.search).get('join'),isPlayer=!!HID;
+const N=400,R=1.4,T0=1,AL=.992,rnd=v=>Math.round(v*1000)/1000;
+const def=(()=>{const a=[];for(let i=0;i<=N;i++){const x=i/N;a.push(Math.sin(14*x)*.35+Math.sin(37*x)*.12+1.6*(x-.72)*(x-.72))}
+const lo=Math.min(...a),hi=Math.max(...a);return a.map(v=>(v-lo)/(hi-lo))})();
+const M={L:def.slice(),x:.1,T:1,best:.1,trail:[],grid:false,drawing:false,D:[],hint:true,paused:false,sv:.5,hold:0,acc:0,msg:'',mt:0};
+const css=getComputedStyle(document.documentElement),col=n=>css.getPropertyValue(n).trim();
+const lvl=(L,v)=>{const f=v*N,i=Math.min(N-1,Math.floor(f)),t=f-i;return L[i]*(1-t)+L[i+1]*t};
+
+/* ---------- dibujo (sirve para el principal, las miniaturas y la vista grande) ---------- */
+function paint(g,W,H,S,k){
+let fg=col('--fg'),mu=col('--muted'),ac=col('--accent');
+const pL=24*k,pR=96*k,pT=56*k,pB=48*k,X=v=>pL+v*(W-pL-pR),Y=l=>H-pB-l*(H-pT-pB);
+g.clearRect(0,0,W,H);g.lineJoin='round';g.font=17*k+'px Helvetica Neue,Arial,sans-serif';
+if(S.grid){fg='#1b1a2e';mu='#6b6880';ac='#e4572e';
+g.fillStyle='#fff';g.fillRect(0,0,W,H);const gs=40*k,ox=X(0),oy=Y(0);
+g.lineWidth=1;g.strokeStyle='#d4d9e1';g.beginPath();
+for(let a=ox%gs;a<=W;a+=gs){g.moveTo(a,0);g.lineTo(a,H)}
+for(let a=oy%gs;a<=H;a+=gs){g.moveTo(0,a);g.lineTo(W,a)}g.stroke();
+g.strokeStyle=fg;g.lineWidth=2*k;g.beginPath();g.moveTo(0,oy);g.lineTo(W,oy);g.moveTo(ox,0);g.lineTo(ox,H);g.stroke();
+g.fillStyle=fg;g.fillText('x',X(1)-4*k,oy+22*k);g.fillText('costo',ox+8*k,50*k)}
+if(S.drawing){
+g.strokeStyle=ac;g.lineWidth=5*k;g.beginPath();let f=1;
+for(let i=0;i<=N;i++)if(S.D[i]!=null){const px=X(i/N),py=Y(S.D[i]);f?g.moveTo(px,py):g.lineTo(px,py);f=0}
+g.stroke();
+if(S.hint){g.fillStyle=mu;g.fillText(S.D.some(v=>v!=null)?'Suelta para aplicar tu curva':'Arrastra de lado a lado para dibujar el paisaje',pL,32)}
+return}
+g.strokeStyle=mu;g.lineWidth=4*k;g.beginPath();
+for(let i=0;i<=N;i++){const px=X(i/N),py=Y(S.L[i]);i?g.lineTo(px,py):g.moveTo(px,py)}g.stroke();
+const n=S.trail.length;
+S.trail.forEach((v,i)=>{g.fillStyle='rgba(240,138,93,'+(i/n*.5)+')';g.beginPath();g.arc(X(v),Y(lvl(S.L,v)),6*k,0,7);g.fill()});
+g.strokeStyle=fg;g.lineWidth=3*k;g.beginPath();g.arc(X(S.best),Y(lvl(S.L,S.best)),17*k,0,7);g.stroke();
+g.fillStyle=ac;g.beginPath();g.arc(X(S.x),Y(lvl(S.L,S.x)),11*k,0,7);g.fill();
+const bx=W-70*k,bw=28*k,bh=H-pT-pB;g.strokeStyle=mu;g.lineWidth=2*k;g.strokeRect(bx,pT,bw,bh);
+g.fillStyle=ac;const h=bh*S.T;g.fillRect(bx,pT+bh-h,bw,h);
+g.fillStyle=fg;g.fillText('T = '+S.T.toFixed(3),pL,32*k);g.fillText('T',bx+8*k,H-16*k);
+if(S.mt>0){g.fillStyle=ac;g.fillText(S.msg,pL+110*k,32*k)}}
+
+/* ---------- simulación ---------- */
+function reset(){M.x=.05+Math.random()*.1;M.T=T0;M.best=M.x;M.trail=[];M.hold=0;M.msg='';M.mt=0}
+function step(){
+if(M.T<.006)return;
+const L=M.L,E=v=>lvl(L,v)*R,s=.02+.1*M.T/T0,n=Math.min(1,Math.max(0,M.x+(Math.random()-.5)*2*s)),d=E(n)-E(M.x);
+if(d<0||Math.random()<Math.exp(-d/M.T)){if(d>0){M.msg='acepta una peor solución';M.mt=40}M.x=n;if(E(M.x)<E(M.best))M.best=M.x}
+M.T*=AL;M.trail.push(M.x);if(M.trail.length>50)M.trail.shift()}
+
+/* ---------- lienzo principal ---------- */
+const c=$('c'),g=c.getContext('2d');let W=0,H=0;
+function size(){const dpr=window.devicePixelRatio||1;W=c.clientWidth;H=Math.max(300,Math.min(480,Math.round(W*.5)));
+c.style.height=H+'px';c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);g.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',()=>{if(!$('app').hidden)size()});
+let last=null,down=false;
+const pt=e=>{const r=c.getBoundingClientRect(),v=Math.min(1,Math.max(0,(e.clientX-r.left-24)/(W-120))),l=Math.min(1,Math.max(0,(H-48-(e.clientY-r.top))/(H-104)));return[Math.round(v*N),l]};
+c.addEventListener('pointerdown',e=>{if(!M.drawing)return;down=true;c.setPointerCapture(e.pointerId);last=pt(e);M.D[last[0]]=last[1]});
+c.addEventListener('pointermove',e=>{if(!M.drawing||!down)return;const p=pt(e);
+if(p[0]===last[0])M.D[p[0]]=p[1];else{const a=Math.min(last[0],p[0]),b=Math.max(last[0],p[0]);
+for(let i=a;i<=b;i++)M.D[i]=last[1]+(p[1]-last[1])*((i-last[0])/(p[0]-last[0]))}last=p});
+function finish(){
+if(!M.drawing||!down)return;down=false;
+const idx=[];for(let i=0;i<=N;i++)if(M.D[i]!=null)idx.push(i);
+if(idx.length<20){M.D=[];return}
+const a=idx[0],b=idx[idx.length-1],nl=new Array(N+1);let k=0;
+for(let i=0;i<=N;i++){if(i<=a)nl[i]=M.D[a];else if(i>=b)nl[i]=M.D[b];
+else{while(idx[k+1]<i)k++;const i0=idx[k],i1=idx[k+1];nl[i]=M.D[i0]+(M.D[i1]-M.D[i0])*(i-i0)/(i1-i0)}}
+M.L=nl;setDrawing(false);setPaused(false);reset();sendL()}
+c.addEventListener('pointerup',finish);c.addEventListener('pointercancel',finish);
+
+/* ---------- botones ---------- */
+const bD=$('draw'),bP=$('pause');
+function setDrawing(on){M.drawing=on;down=false;M.D=[];bD.setAttribute('aria-pressed',on);bD.textContent=on?'Cancelar dibujo':'Dibujar';
+c.style.touchAction=on?'none':'auto';c.style.cursor=on?'crosshair':'default'}
+function setPaused(on){M.paused=on;bP.setAttribute('aria-pressed',on);bP.textContent=on?'Iniciar':'Pausa'}
+bD.onclick=()=>setDrawing(!M.drawing);
+bP.onclick=()=>setPaused(!M.paused);
+$('reset').onclick=()=>{M.L=def.slice();setDrawing(false);setPaused(false);reset();sendL()};
+$('grid').onclick=()=>{M.grid=!M.grid;$('grid').setAttribute('aria-pressed',M.grid)};
+
+/* ---------- perilla de velocidad ---------- */
+const knob=$('knob'),kv=$('kv'),kt=$('kt'),NS='http://www.w3.org/2000/svg',ticks=[];
+const mk=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);kv.appendChild(e);return e};
+for(let i=0;i<=40;i++){const th=(-135+270*i/40)*Math.PI/180,r2=76+14*i/40;
+ticks.push(mk('line',{x1:100+70*Math.sin(th),y1:96-70*Math.cos(th),x2:100+r2*Math.sin(th),y2:96-r2*Math.cos(th),'stroke-width':3}))}
+mk('circle',{cx:100,cy:96,r:56}).style.fill='var(--fg)';
+const ind=mk('line',{x1:100,y1:48,x2:100,y2:66,'stroke-width':6,'stroke-linecap':'round'});ind.style.stroke='var(--bg)';
+[['\u2212',34],['+',166]].forEach(([t,x])=>{const e=mk('text',{x,y:192,'font-size':30,'font-weight':700,'text-anchor':'middle'});e.textContent=t;e.style.fill='var(--fg)'});
+function upd(){ind.setAttribute('transform','rotate('+(-135+270*M.sv)+' 100 96)');
+ticks.forEach((t,i)=>{const on=i/40<=M.sv;t.style.stroke=on?'var(--accent)':'var(--muted)';t.style.opacity=on?1:.45});
+kt.textContent='Velocidad \u00d7'+(.05*Math.pow(30,M.sv)).toFixed(2);knob.setAttribute('aria-valuenow',Math.round(M.sv*100))}
+const setSv=v=>{M.sv=Math.min(1,Math.max(0,v));upd()};
+function fromPtr(e){const r=knob.getBoundingClientRect();let d=Math.atan2(e.clientX-(r.left+r.width/2),-(e.clientY-(r.top+r.height*.48)))*180/Math.PI;
+setSv((Math.max(-135,Math.min(135,d))+135)/270)}
+let kd=false;
+knob.addEventListener('pointerdown',e=>{kd=true;knob.setPointerCapture(e.pointerId);fromPtr(e)});
+knob.addEventListener('pointermove',e=>{if(kd)fromPtr(e)});
+knob.addEventListener('pointerup',()=>{kd=false});knob.addEventListener('pointercancel',()=>{kd=false});
+knob.addEventListener('keydown',e=>{const k=e.key;if(k==='ArrowRight'||k==='ArrowUp'){setSv(M.sv+.05);e.preventDefault()}else if(k==='ArrowLeft'||k==='ArrowDown'){setSv(M.sv-.05);e.preventDefault()}});
+knob.addEventListener('wheel',e=>{e.preventDefault();setSv(M.sv+(e.deltaY<0?.04:-.04))},{passive:false});
+upd();
+
+/* ---------- jugador ---------- */
+let conn=null;
+const toInts=a=>Array.from({length:N+1},(_,i)=>a[i]==null?null:Math.round(a[i]*1000));
+function sendL(){if(conn&&conn.open)conn.send({t:'L',L:toInts(M.L)})}
+function startPlayer(name){
+$('st').textContent='Conectando…';
+const peer=new Peer();
+peer.on('open',()=>{conn=peer.connect(HID,{reliable:true,serialization:'json'});
+conn.on('open',()=>{conn.send({t:'hello',name});sendL();$('st').textContent='Conectado como '+name+'. Todo lo que hagas se ve en la pantalla del anfitrión.';
+setInterval(()=>{if(!conn.open)return;conn.send({t:'s',x:rnd(M.x),T:rnd(M.T),b:rnd(M.best),g:+M.grid,d:+M.drawing});
+if(M.drawing)conn.send({t:'D',D:toInts(M.D)})},100)});
+conn.on('close',()=>{$('st').textContent='Se perdió la conexión con el anfitrión. Recarga la página para volver a entrar.'})});
+peer.on('error',e=>{$('st').textContent='Error de conexión ('+e.type+'). Revisa que el anfitrión siga abierto y recarga.'})}
+$('send').onclick=()=>{if(!conn||!conn.open){$('st').textContent='Aún no hay conexión con el anfitrión.';return}
+conn.send({t:'save',L:toInts(M.L)});$('send').textContent='¡Enviado!';setTimeout(()=>{$('send').textContent='Enviar mi dibujo'},2000)};
+
+/* ---------- anfitrión ---------- */
+const P={};let openId=null;
+const mc=$('mc').getContext('2d');
+const num=v=>Math.min(1,Math.max(0,+v||0));
+const okL=a=>Array.isArray(a)&&a.length===N+1&&a.every(v=>typeof v==='number'&&isFinite(v));
+function mkPlayer(id){
+const el=document.createElement('div');el.className='pc';
+const cv=document.createElement('canvas');cv.width=300;cv.height=160;
+const nm=document.createElement('b'),ok=document.createElement('span');ok.className='ok';ok.textContent='✓ enviado';ok.hidden=true;
+el.append(cv,nm,ok);$('plist').append(el);$('none').hidden=true;
+el.onclick=()=>{openId=id;$('mname').textContent=P[id].name;$('modal').hidden=false};
+return{name:'',card:el,nm,ok,g:cv.getContext('2d'),saved:null,S:{L:def.slice(),x:.1,T:1,best:.1,trail:[],grid:false,drawing:false,D:[]}}}
+function onMsg(id,m){
+if(!m||typeof m!=='object')return;
+let p=P[id];
+if(m.t==='hello'){if(!p)p=P[id]=mkPlayer(id);p.name=String(m.name||'Jugador').slice(0,30);p.nm.textContent=p.name;p.card.classList.remove('off');return}
+if(!p)return;
+if(m.t==='s'){const S=p.S;S.x=num(m.x);S.T=num(m.T);S.best=num(m.b);S.grid=!!m.g;S.drawing=!!m.d;S.trail.push(S.x);if(S.trail.length>50)S.trail.shift();if(!S.drawing)S.D=[]}
+else if(m.t==='L'&&Array.isArray(m.L)&&okL(m.L.map(v=>v==null?NaN:v)))p.S.L=m.L.map(v=>v/1000);
+else if(m.t==='D'&&Array.isArray(m.D)&&m.D.length===N+1)p.S.D=m.D.map(v=>typeof v==='number'?v/1000:null);
+else if(m.t==='save'&&Array.isArray(m.L)&&okL(m.L.map(v=>v==null?NaN:v))){p.saved=m.L.map(v=>v/1000);p.ok.hidden=false}}
+function startHost(){
+$('host').hidden=false;$('ttl').textContent='Recocido simulado · Anfitrión';
+const peer=new Peer();
+peer.on('open',id=>{const url=location.href.split('#')[0].split('?')[0]+'?join='+id;
+const qr=qrcode(0,'M');qr.addData(url);qr.make();$('qr').innerHTML=qr.createImgTag(5,3);$('qrbox').hidden=false;
+if(location.protocol==='file:')$('st').textContent='Aviso: abre este archivo desde una página publicada (por ejemplo GitHub Pages). Desde un archivo local el código QR no funciona en los celulares.'});
+peer.on('connection',cn=>{cn.on('data',m=>onMsg(cn.peer,m));cn.on('close',()=>{const p=P[cn.peer];if(p)p.card.classList.add('off')})});
+peer.on('error',e=>{$('st').textContent='Error de conexión ('+e.type+').'})}
+$('mclose').onclick=()=>{openId=null;$('modal').hidden=true};
+$('saveall').onclick=()=>{
+const items=[['Anfitrión',M.L]].concat(Object.values(P).filter(p=>p.saved).map(p=>[p.name,p.saved]));
+const esc=s=>s.replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+const svg=L=>{let d='';for(let i=0;i<=N;i+=4)d+=(i?'L':'M')+(i/N*600).toFixed(1)+' '+(195-L[i]*185).toFixed(1);
+return '<svg viewBox="0 0 600 200" width="600" style="max-width:100%;background:#fff;border:1px solid #ccc"><path d="'+d+'" fill="none" stroke="#e4572e" stroke-width="3"/></svg>'};
+const html='<!doctype html><html lang="es"><meta charset="utf-8"><title>Dibujos de recocido simulado</title><body style="font-family:Helvetica,Arial,sans-serif;max-width:680px;margin:24px auto;padding:0 16px"><h1>Dibujos de recocido simulado</h1>'+items.map(([n,L])=>'<h2>'+esc(n)+'</h2>'+svg(L)).join('')+'</body></html>';
+const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download='dibujos-recocido-simulado.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
+
+/* ---------- arranque ---------- */
+function showApp(){$('join').hidden=true;$('app').hidden=false;size();reset();
+let fr=0;(function loop(){
+if(!M.drawing&&!M.paused){if(M.T<.006){if(++M.hold>120)reset()}else{M.acc+=.05*Math.pow(30,M.sv);while(M.acc>=1){step();M.acc--}}}
+if(M.mt>0)M.mt--;
+paint(g,W,H,M,1);
+if(!isPlayer){if(++fr%5===0)Object.values(P).forEach(p=>paint(p.g,300,160,p.S,300/900));
+if(openId&&P[openId])paint(mc,900,450,P[openId].S,1)}
+requestAnimationFrame(loop)})()}
+if(isPlayer){$('join').hidden=false;$('send').hidden=false;
+$('go').onclick=()=>{const name=$('nm').value.trim();if(!name){$('nm').focus();return}
+showApp();$('ttl').textContent='Hola, '+name;startPlayer(name)};
+$('nm').addEventListener('keydown',e=>{if(e.key==='Enter')$('go').click()})}
+else{showApp();startHost()}
+})();
+</script>
+</body>
+</html>
