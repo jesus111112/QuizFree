@@ -35,6 +35,13 @@ input{font:inherit;font-size:18px;min-height:44px;padding:0 14px;border-radius:1
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
 .mbox{background:var(--card);border-radius:16px;padding:16px;max-width:940px;width:100%;box-sizing:border-box}
 .mbox canvas{margin:10px 0}
+.fm{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px;margin:16px 0;padding:18px}
+.fm h3{margin:0;font-size:18px}
+.fx{font-family:Georgia,serif;font-size:clamp(24px,4vw,34px);color:var(--accent);margin:6px 0}
+.fs{font-family:Georgia,serif;font-size:clamp(17px,2.6vw,22px);min-height:1.6em;padding:8px 0;border-top:1px dashed var(--line)}
+.fm table{border-collapse:collapse;width:100%;font-size:16px;margin:8px 0}
+.fm th,.fm td{text-align:right;padding:4px 8px;border-bottom:1px solid var(--line)}
+.fm th{color:var(--muted);font-weight:600}
 </style>
 </head>
 <body>
@@ -47,7 +54,7 @@ input{font:inherit;font-size:18px;min-height:44px;padding:0 14px;border-radius:1
 
 <div id="app" hidden>
 <h1 id="ttl">Recocido simulado</h1>
-<p id="sub">El punto naranja busca el valle más bajo. Dibuja tu propio paisaje y ajusta la velocidad con la perilla.</p>
+<p id="sub">El punto naranja busca el valle más bajo. Pulsa Iniciar para comenzar, dibuja tu propio paisaje y ajusta la velocidad con la perilla.</p>
 <div class="card"><canvas id="c" aria-label="Paisaje de costo con un punto que busca el mínimo"></canvas></div>
 <div class="row">
 <button id="draw" aria-pressed="false">Dibujar</button>
@@ -60,6 +67,18 @@ input{font:inherit;font-size:18px;min-height:44px;padding:0 14px;border-radius:1
 <div class="knobrow"><div class="knob" id="knob" role="slider" tabindex="0" aria-label="Velocidad del algoritmo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><svg id="kv" viewBox="0 0 200 200" width="170" height="170"></svg></div><div class="kt" id="kt"></div></div>
 <div id="qrbox" hidden><div id="qr"></div><span>Escanea el código con el celular para unirte.</span></div>
 </div>
+<section class="card fm" id="fm">
+<div><h3>Probabilidad de aceptar una peor solución</h3>
+<div class="fx">P = exp(−ΔE / T)</div>
+<div class="fs" id="f1s"></div>
+<table><thead><tr><th>k</th><th>ΔE</th><th>T</th><th>P</th><th>¿Acepta?</th></tr></thead><tbody id="b1"></tbody></table>
+<small>ΔE: cambio de costo · T: temperatura actual</small></div>
+<div><h3>Enfriamiento típico</h3>
+<div class="fx">T(k+1) = α · T(k)</div>
+<div class="fs" id="f2s"></div>
+<table><thead><tr><th>k</th><th>T(k)</th><th>T(k+1)</th></tr></thead><tbody id="b2"></tbody></table>
+<small>α = 0.99 (lo típico es entre 0.8 y 0.99) · k: paso del algoritmo</small></div>
+</section>
 <small id="st"></small>
 
 <section id="host" hidden>
@@ -78,10 +97,10 @@ input{font:inherit;font-size:18px;min-height:44px;padding:0 14px;border-radius:1
 <script>
 (()=>{
 const $=id=>document.getElementById(id),HID=new URLSearchParams(location.search).get('join'),isPlayer=!!HID;
-const N=400,R=1.4,T0=1,AL=.992,rnd=v=>Math.round(v*1000)/1000;
+const N=400,R=1.4,T0=1,AL=.99,rnd=v=>Math.round(v*1000)/1000;
 const def=(()=>{const a=[];for(let i=0;i<=N;i++){const x=i/N;a.push(Math.sin(14*x)*.35+Math.sin(37*x)*.12+1.6*(x-.72)*(x-.72))}
 const lo=Math.min(...a),hi=Math.max(...a);return a.map(v=>(v-lo)/(hi-lo))})();
-const M={L:def.slice(),x:.1,T:1,best:.1,trail:[],grid:false,drawing:false,D:[],hint:true,paused:false,sv:.5,hold:0,acc:0,msg:'',mt:0};
+const M={L:def.slice(),x:.1,T:1,best:.1,trail:[],grid:false,drawing:false,D:[],hint:true,paused:true,wait:true,k:0,worse:null,cool:null,sv:.5,hold:0,acc:0,msg:'',mt:0};
 const css=getComputedStyle(document.documentElement),col=n=>css.getPropertyValue(n).trim();
 const lvl=(L,v)=>{const f=v*N,i=Math.min(N-1,Math.floor(f)),t=f-i;return L[i]*(1-t)+L[i+1]*t};
 
@@ -112,15 +131,19 @@ g.fillStyle=ac;g.beginPath();g.arc(X(S.x),Y(lvl(S.L,S.x)),11*k,0,7);g.fill();
 const bx=W-70*k,bw=28*k,bh=H-pT-pB;g.strokeStyle=mu;g.lineWidth=2*k;g.strokeRect(bx,pT,bw,bh);
 g.fillStyle=ac;const h=bh*S.T;g.fillRect(bx,pT+bh-h,bw,h);
 g.fillStyle=fg;g.fillText('T = '+S.T.toFixed(3),pL,32*k);g.fillText('T',bx+8*k,H-16*k);
-if(S.mt>0){g.fillStyle=ac;g.fillText(S.msg,pL+110*k,32*k)}}
+if(S.mt>0){g.fillStyle=ac;g.fillText(S.msg,pL+110*k,32*k)}
+if(S.wait){g.fillStyle=ac;g.fillText('Pulsa Iniciar para comenzar',pL+110*k,32*k)}}
 
 /* ---------- simulación ---------- */
-function reset(){M.x=.05+Math.random()*.1;M.T=T0;M.best=M.x;M.trail=[];M.hold=0;M.msg='';M.mt=0}
+let h1=[],h2=[],lk1=-1;
+function reset(){M.x=.05+Math.random()*.1;M.T=T0;M.best=M.x;M.trail=[];M.hold=0;M.msg='';M.mt=0;M.k=0;M.worse=null;M.cool=null;h1=[];h2=[];lk1=-1}
 function step(){
 if(M.T<.006)return;
 const L=M.L,E=v=>lvl(L,v)*R,s=.02+.1*M.T/T0,n=Math.min(1,Math.max(0,M.x+(Math.random()-.5)*2*s)),d=E(n)-E(M.x);
-if(d<0||Math.random()<Math.exp(-d/M.T)){if(d>0){M.msg='acepta una peor solución';M.mt=40}M.x=n;if(E(M.x)<E(M.best))M.best=M.x}
-M.T*=AL;M.trail.push(M.x);if(M.trail.length>50)M.trail.shift()}
+const ok=d<0||Math.random()<Math.exp(-d/M.T);M.k++;
+if(d>0)M.worse={k:M.k,dE:d,T:M.T,P:Math.exp(-d/M.T),ok};
+if(ok){if(d>0){M.msg='acepta una peor solución';M.mt=40}M.x=n;if(E(M.x)<E(M.best))M.best=M.x}
+M.cool={k:M.k,T:M.T,Tn:M.T*AL};M.T*=AL;M.trail.push(M.x);if(M.trail.length>50)M.trail.shift()}
 
 /* ---------- lienzo principal ---------- */
 const c=$('c'),g=c.getContext('2d');let W=0,H=0;
@@ -147,7 +170,7 @@ c.addEventListener('pointerup',finish);c.addEventListener('pointercancel',finish
 const bD=$('draw'),bP=$('pause');
 function setDrawing(on){M.drawing=on;down=false;M.D=[];bD.setAttribute('aria-pressed',on);bD.textContent=on?'Cancelar dibujo':'Dibujar';
 c.style.touchAction=on?'none':'auto';c.style.cursor=on?'crosshair':'default'}
-function setPaused(on){M.paused=on;bP.setAttribute('aria-pressed',on);bP.textContent=on?'Iniciar':'Pausa'}
+function setPaused(on){M.paused=on;if(!on)M.wait=false;bP.setAttribute('aria-pressed',on);bP.textContent=on?'Iniciar':'Pausa'}
 bD.onclick=()=>setDrawing(!M.drawing);
 bP.onclick=()=>setPaused(!M.paused);
 $('reset').onclick=()=>{M.L=def.slice();setDrawing(false);setPaused(false);reset();sendL()};
@@ -229,8 +252,20 @@ return '<svg viewBox="0 0 600 200" width="600" style="max-width:100%;background:
 const html='<!doctype html><html lang="es"><meta charset="utf-8"><title>Dibujos de recocido simulado</title><body style="font-family:Helvetica,Arial,sans-serif;max-width:680px;margin:24px auto;padding:0 16px"><h1>Dibujos de recocido simulado</h1>'+items.map(([n,L])=>'<h2>'+esc(n)+'</h2>'+svg(L)).join('')+'</body></html>';
 const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download='dibujos-recocido-simulado.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
 
+/* ---------- panel de fórmulas ---------- */
+const f3=v=>v.toFixed(3),f4=v=>v.toFixed(4);
+function panel(){
+if(!M.paused&&!M.drawing){
+if(M.worse&&M.worse.k!==lk1){lk1=M.worse.k;h1.push(M.worse);if(h1.length>5)h1.shift()}
+if(M.cool){h2.push(M.cool);if(h2.length>5)h2.shift()}}
+const w=M.worse,c=M.cool;
+$('f1s').textContent=w?'P = exp(−'+f3(w.dE)+' / '+f3(w.T)+') = '+f3(w.P)+'  (≈ '+Math.round(w.P*100)+' %)':'Esperando una propuesta peor…';
+$('f2s').textContent=c?'T(k+1) = '+AL+' · '+f4(c.T)+' = '+f4(c.Tn):'Esperando el primer paso…';
+$('b1').innerHTML=h1.slice().reverse().map(r=>'<tr><td>'+r.k+'</td><td>'+f3(r.dE)+'</td><td>'+f3(r.T)+'</td><td>'+f3(r.P)+'</td><td>'+(r.ok?'sí':'no')+'</td></tr>').join('');
+$('b2').innerHTML=h2.slice().reverse().map(r=>'<tr><td>'+r.k+'</td><td>'+f4(r.T)+'</td><td>'+f4(r.Tn)+'</td></tr>').join('')}
+
 /* ---------- arranque ---------- */
-function showApp(){$('join').hidden=true;$('app').hidden=false;size();reset();
+function showApp(){$('join').hidden=true;$('app').hidden=false;size();reset();setPaused(true);M.wait=true;panel();setInterval(panel,250);
 let fr=0;(function loop(){
 if(!M.drawing&&!M.paused){if(M.T<.006){if(++M.hold>120)reset()}else{M.acc+=.05*Math.pow(30,M.sv);while(M.acc>=1){step();M.acc--}}}
 if(M.mt>0)M.mt--;
