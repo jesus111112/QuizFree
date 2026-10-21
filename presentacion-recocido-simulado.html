@@ -3106,19 +3106,17 @@ VALENZUELA AYALA JESUS</div></div></div></div></div></section>
 </main>
 <div class="deck-pager" aria-hidden="true"></div>
 
-<!-- CONTROL REMOTO PEERJS: PRESENTACIÓN (con código QR) -->
+<!-- CONTROL REMOTO PEERJS: PRESENTACIÓN (con código QR) v2 -->
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 (function () {
   'use strict';
 
-  // Nombre del archivo del control remoto (debe estar en la misma carpeta
-  // que esta presentación, p. ej. /QuizFree/control-remoto.html)
+  // Archivo del control remoto: misma carpeta que esta presentación.
   const CONTROL_PAGE = 'control-remoto.html';
 
-  // ID de sala aleatorio por sesión: evita choques entre pestañas
-  // y que otra persona controle tu presentación por adivinar el ID.
+  // ID de sala aleatorio por sesión
   let ROOM_ID = null;
   try { ROOM_ID = sessionStorage.getItem('recocido-room'); } catch (e) {}
   if (!ROOM_ID) {
@@ -3130,21 +3128,32 @@ VALENZUELA AYALA JESUS</div></div></div></div></div></section>
   let qrBuilt = false;
 
   // ---------- Navegación ----------
+  function pressKey(key, code, keyCode) {
+    ['keydown', 'keyup'].forEach(function (type) {
+      const ev = new KeyboardEvent(type, {
+        key: key, code: code, keyCode: keyCode, which: keyCode,
+        bubbles: true, cancelable: true
+      });
+      document.dispatchEvent(ev);
+    });
+  }
+
   function navigate(action, slide) {
+    // 1) Reveal.js, si existe
     if (window.Reveal && typeof window.Reveal.next === 'function') {
-      if (action === 'next') { window.Reveal.next(); return; }
-      if (action === 'prev') { window.Reveal.prev(); return; }
+      if (action === 'next') return window.Reveal.next();
+      if (action === 'prev') return window.Reveal.prev();
       if (action === 'goto') {
         const t = Number(slide);
         if (Number.isInteger(t) && t >= 1) window.Reveal.slide(t - 1, 0);
         return;
       }
     }
-    const cur = parseInt(location.hash.replace(/^#/, ''), 10);
-    const n = Number.isInteger(cur) && cur >= 1 ? cur : 1;
-    if (action === 'next') location.hash = String(n + 1);
-    else if (action === 'prev') location.hash = String(Math.max(1, n - 1));
-    else if (action === 'goto') {
+    // 2) Presentación propia: simula las flechas del teclado
+    if (action === 'next') return pressKey('ArrowRight', 'ArrowRight', 39);
+    if (action === 'prev') return pressKey('ArrowLeft', 'ArrowLeft', 37);
+    // 3) Ir a diapositiva: usa el hash (#3)
+    if (action === 'goto') {
       const t = Number(slide);
       if (Number.isInteger(t) && t >= 1) location.hash = String(t);
     }
@@ -3155,7 +3164,7 @@ VALENZUELA AYALA JESUS</div></div></div></div></div></section>
     const el = document.getElementById('rc-status');
     if (!el) return;
     el.textContent = text;
-    el.style.color = ok ? '#4ade80' : '#facc15';
+    el.style.color = ok ? '#16a34a' : '#b45309';
   }
 
   function startPresentationPeer() {
@@ -3183,7 +3192,6 @@ VALENZUELA AYALA JESUS</div></div></div></div></div></section>
     });
 
     peer.on('disconnected', function () {
-      // Reconecta al servidor de señalización si se cae
       if (peer && !peer.destroyed) peer.reconnect();
     });
 
@@ -3193,7 +3201,7 @@ VALENZUELA AYALA JESUS</div></div></div></div></div></section>
     });
   }
 
-  // ---------- Interfaz del QR ----------
+  // ---------- QR ----------
   function controlUrl() {
     const url = new URL(CONTROL_PAGE, location.href);
     url.search = '';
@@ -3202,32 +3210,68 @@ VALENZUELA AYALA JESUS</div></div></div></div></div></section>
     return url.toString();
   }
 
+  function buildQR() {
+    const box = document.getElementById('rc-qr');
+    const url = controlUrl();
+    box.innerHTML = '';
+
+    let ok = false;
+    if (window.QRCode) {
+      try {
+        new QRCode(box, {
+          text: url, width: 220, height: 220,
+          colorDark: '#000000', colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+        ok = true;
+      } catch (e) { console.error('QRCode falló:', e); }
+    }
+    // Alternativa si la librería no cargó: imagen generada en línea
+    if (!ok) {
+      const img = new Image();
+      img.width = 220; img.height = 220; img.alt = 'Código QR';
+      img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=' +
+                encodeURIComponent(url);
+      box.appendChild(img);
+    }
+
+    const link = document.getElementById('rc-url');
+    link.textContent = url;
+    link.href = url;
+    qrBuilt = true;
+  }
+
+  // ---------- Interfaz ----------
   function buildUI() {
+    if (document.getElementById('rc-toggle')) return;
+
     const btn = document.createElement('button');
     btn.id = 'rc-toggle';
     btn.type = 'button';
     btn.textContent = '📱 Control remoto';
     btn.style.cssText =
-      'position:fixed;right:16px;bottom:16px;z-index:99998;' +
+      'position:fixed;right:16px;bottom:16px;z-index:2147483646;' +
       'padding:10px 14px;border:0;border-radius:999px;cursor:pointer;' +
       'font:600 14px system-ui,sans-serif;background:#1f2937;color:#fff;' +
-      'box-shadow:0 4px 14px rgba(0,0,0,.35);opacity:.85;';
+      'box-shadow:0 4px 14px rgba(0,0,0,.35);';
 
     const panel = document.createElement('div');
     panel.id = 'rc-panel';
     panel.style.cssText =
-      'position:fixed;inset:0;z-index:99999;display:none;' +
-      'align-items:center;justify-content:center;' +
+      'position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:2147483647;' +
+      'display:none;align-items:center;justify-content:center;' +
       'background:rgba(0,0,0,.7);font-family:system-ui,sans-serif;';
     panel.innerHTML =
-      '<div style="background:#fff;color:#111;border-radius:16px;' +
-      'padding:24px;max-width:340px;width:90%;text-align:center;">' +
-      '<h2 style="margin:0 0 6px;font-size:20px;">Control remoto</h2>' +
+      '<div style="background:#fff;color:#111;border-radius:16px;padding:24px;' +
+      'max-width:340px;width:90%;text-align:center;">' +
+      '<h2 style="margin:0 0 6px;font-size:20px;color:#111;">Control remoto</h2>' +
       '<p style="margin:0 0 14px;font-size:14px;color:#555;">' +
       'Escanea el código con la cámara de tu teléfono</p>' +
-      '<div id="rc-qr" style="display:inline-block;padding:10px;background:#fff;"></div>' +
+      '<div id="rc-qr" style="display:inline-block;min-width:220px;min-height:220px;' +
+      'padding:10px;background:#fff;"></div>' +
       '<p id="rc-status" style="margin:12px 0 4px;font-weight:600;font-size:14px;">Iniciando…</p>' +
-      '<p id="rc-url" style="margin:0 0 14px;font-size:11px;color:#777;word-break:break-all;"></p>' +
+      '<a id="rc-url" target="_blank" rel="noopener" style="display:block;margin:0 0 14px;' +
+      'font-size:11px;color:#2563eb;word-break:break-all;"></a>' +
       '<button id="rc-close" type="button" style="padding:8px 18px;border:0;' +
       'border-radius:8px;background:#111;color:#fff;font-size:14px;cursor:pointer;">Cerrar</button>' +
       '</div>';
@@ -3237,19 +3281,7 @@ VALENZUELA AYALA JESUS</div></div></div></div></div></section>
 
     function open() {
       panel.style.display = 'flex';
-      if (!qrBuilt && window.QRCode) {
-        const url = controlUrl();
-        new QRCode(document.getElementById('rc-qr'), {
-          text: url,
-          width: 220,
-          height: 220,
-          colorDark: '#000000',
-          colorLight: '#ffffff',
-          correctLevel: QRCode.CorrectLevel.M
-        });
-        document.getElementById('rc-url').textContent = url;
-        qrBuilt = true;
-      }
+      if (!qrBuilt) buildQR();
     }
     function close() { panel.style.display = 'none'; }
 
@@ -3257,18 +3289,22 @@ VALENZUELA AYALA JESUS</div></div></div></div></div></section>
     panel.addEventListener('click', function (e) { if (e.target === panel) close(); });
     document.getElementById('rc-close').addEventListener('click', close);
 
-    // Atajo: tecla "Q" abre/cierra el QR
     document.addEventListener('keydown', function (e) {
       if (e.key && e.key.toLowerCase() === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         panel.style.display === 'flex' ? close() : open();
       }
     });
+
+    console.log('Control remoto listo. Pulsa el botón 📱 o la tecla Q.');
   }
 
   function init() {
     buildUI();
     if (window.Peer) startPresentationPeer();
-    else console.error('No se pudo cargar la biblioteca PeerJS.');
+    else {
+      console.error('No se pudo cargar la biblioteca PeerJS.');
+      setStatus('No se cargó PeerJS (revisa tu conexión)', false);
+    }
   }
 
   if (document.readyState === 'loading') {
