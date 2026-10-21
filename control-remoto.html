@@ -1,95 +1,51 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Control remoto</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{
-    font-family:system-ui,sans-serif;
-    background:#1b1a2e;
-    color:#f6f1ea;
-    min-height:100vh;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    padding:24px 16px;
-  }
-  h1{font-size:1.5rem;margin-bottom:6px}
-  .status{font-size:.95rem;margin-bottom:28px;opacity:.8}
-  .connected{color:#4ade80}
-  .waiting{color:#fbbf24}
-  .btns{display:flex;flex-direction:column;gap:14px;width:100%;max-width:300px}
-  button{
-    font-size:1.35rem;
-    font-weight:700;
-    padding:20px;
-    border:none;
-    border-radius:16px;
-    cursor:pointer;
-  }
-  .next{background:#e4572e;color:#fff}
-  .prev{background:#f08a5d;color:#1b1a2e}
-  .goto{background:#3b82f6;color:#fff}
-  input{
-    font-size:1.2rem;
-    padding:14px;
-    border-radius:12px;
-    border:none;
-    text-align:center;
-    width:100%;
-    margin-bottom:8px;
-  }
-</style>
-</head>
-<body>
-  <h1>Control Remoto</h1>
-  <p class="status waiting" id="status">Conectando…</p>
-
-  <div class="btns">
-    <button class="prev" id="btn-prev">← Anterior</button>
-    <button class="next" id="btn-next">Siguiente →</button>
-
-    <div style="margin-top:12px">
-      <input type="number" id="slide-num" placeholder="Nº de diapositiva" min="1">
-      <button class="goto" id="btn-goto">Ir a diapositiva</button>
-    </div>
-  </div>
-
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (() => {
-  const ROOM_ID = 'recocido-slides-2026';  // Debe ser igual que en la presentación
+  const ROOM_ID = 'recocido-slides-2026';
   const status = document.getElementById('status');
   let conn = null;
+  let peer = null;
 
-  const peer = new Peer();
+  function connect() {
+    status.textContent = 'Conectando…';
+    status.className = 'status waiting';
 
-  peer.on('open', () => {
-    conn = peer.connect(ROOM_ID, { reliable: true });
+    if (peer) {
+      try { peer.destroy(); } catch(e) {}
+    }
 
-    conn.on('open', () => {
-      status.textContent = '✓ Conectado';
-      status.className = 'status connected';
+    peer = new Peer();
+
+    peer.on('open', () => {
+      conn = peer.connect(ROOM_ID, { reliable: true });
+
+      conn.on('open', () => {
+        status.textContent = '✓ Conectado';
+        status.className = 'status connected';
+      });
+
+      conn.on('close', () => {
+        status.textContent = 'Desconectado – reintentando…';
+        status.className = 'status waiting';
+        setTimeout(connect, 2000);
+      });
     });
 
-    conn.on('close', () => {
-      status.textContent = 'Desconectado – recarga la página';
+    peer.on('error', err => {
+      console.warn(err);
+      status.textContent = 'Error: ' + err.type + ' – reintentando…';
       status.className = 'status waiting';
+      setTimeout(connect, 2500);
     });
-  });
+  }
 
-  peer.on('error', err => {
-    status.textContent = 'Error: ' + err.type;
-  });
+  connect();
 
   function send(type, extra = {}) {
     if (conn && conn.open) {
       conn.send({ type, ...extra });
     } else {
-      alert('Todavía no está conectado');
+      alert('Todavía no está conectado. Espera un momento.');
     }
   }
 
@@ -101,5 +57,3 @@
   };
 })();
 </script>
-</body>
-</html>
