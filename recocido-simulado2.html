@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recocido simulado – Multiplayer</title>
+<style>
+:root{--bg:#f6f1ea;--fg:#1b1a2e;--muted:#6b6880;--card:#ffffff;--line:#d9d2c4;--accent:#e4572e;--onaccent:#ffffff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1a2e;--fg:#f6f1ea;--muted:#b9b4cc;--card:#27263f;--line:#3a3958;--accent:#f08a5d;--onaccent:#1b1a2e}}
+:root[data-theme="dark"]{--bg:#1b1a2e;--fg:#f6f1ea;--muted:#b9b4cc;--card:#27263f;--line:#3a3958;--accent:#f08a5d;--onaccent:#1b1a2e}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;line-height:1.5}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 40px}
+h1{font-family:Georgia,serif;font-weight:400;font-size:clamp(24px,5vw,40px);line-height:1.15;margin:0 0 8px}
+p{margin:0 0 14px;color:var(--muted);font-size:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px}
+canvas{display:block;width:100%;border-radius:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;align-items:center}
+button{font:inherit;font-size:16px;font-weight:600;min-height:44px;padding:0 18px;border-radius:999px;border:2px solid var(--accent);background:transparent;color:var(--fg);cursor:pointer}
+button.primary{background:var(--accent);color:var(--onaccent)}
+button[aria-pressed="true"]{background:var(--accent);color:var(--onaccent)}
+button:hover{background:var(--accent);color:var(--onaccent)}
+button:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+button:disabled{opacity:.45;cursor:default}
+small{color:var(--muted);font-size:14px}
+.knobrow{display:flex;align-items:center;gap:8px}
+.knob{width:150px;height:150px;touch-action:none;cursor:grab;border-radius:50%;user-select:none}
+.knob:active{cursor:grabbing}
+.knob:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+.kt{font-size:15px;font-weight:600;min-width:130px}
+#qrbox{display:flex;flex-direction:column;align-items:center;gap:6px;margin-left:8px}
+#qrbox canvas,#qrbox img{border-radius:8px}
+.small{font-size:.8rem;opacity:.75;word-break:break-all;max-width:180px;text-align:center}
+.players{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
+.mini{width:220px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;transition:.15s}
+.mini:hover,.mini.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.mini h3{margin:0 0 6px;font-size:14px;font-weight:700}
+.mini canvas{width:100%;height:110px;border-radius:8px;background:#fff}
+.bigview{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.bigview .inner{background:var(--card);border-radius:16px;padding:16px;max-width:900px;width:100%}
+.bigview canvas{width:100%;height:auto;border-radius:10px}
+[hidden]{display:none!important}
+#p-join{max-width:420px;margin:60px auto;text-align:center}
+#p-join input{width:100%;max-width:280px;padding:14px;font-size:1.2rem;border-radius:10px;border:2px solid var(--line);text-align:center;margin:12px 0}
+.saved{margin-top:20px}
+.saved .item{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.saved canvas{width:120px;height:60px;border-radius:6px}
+</style>
+</head>
+<body>
+<main>
+  <!-- ============ ANFITRIÓN ============ -->
+  <div id="host-ui">
+    <h1>Recocido simulado: prueba tu propio paisaje</h1>
+    <p>El punto naranja busca el valle más bajo. Pulsa <b>Dibujar</b> y traza tu curva. Los demás se conectan por QR y ves lo que hacen en tiempo real.</p>
+
+    <div class="card"><canvas id="c" aria-label="Paisaje de costo"></canvas></div>
+
+    <div class="row">
+      <button id="draw" aria-pressed="false">Dibujar</button>
+      <button id="pause" aria-pressed="false">Pausa</button>
+      <button id="reset">Resetear</button>
+      <button id="grid" aria-pressed="false">Plano cartesiano</button>
+
+      <div class="knobrow">
+        <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Velocidad" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+          <svg id="kv" viewBox="0 0 200 200" width="150" height="150"></svg>
+        </div>
+        <div class="kt" id="kt"></div>
+      </div>
+
+      <div id="qrbox">
+        <div id="qr"></div>
+        <div id="h-url" class="small"></div>
+        <div id="h-file" hidden>
+          <input id="base" placeholder="https://tu-sitio.com/archivo.html" style="width:160px;font-size:12px;padding:6px">
+        </div>
+      </div>
+    </div>
+
+    <small>Aro: mejor solución. Termómetro: temperatura T. Las miniaturas de abajo muestran a los participantes en vivo.</small>
+
+    <div class="row" style="margin-top:20px">
+      <button id="btn-save" class="primary">Descargar HTML con dibujos enviados</button>
+      <span id="h-n" style="font-weight:700">0 conectados</span>
+    </div>
+
+    <div class="players" id="players"></div>
+    <div class="saved" id="saved-list"></div>
+  </div>
+
+  <!-- ============ JUGADOR ============ -->
+  <div id="player-ui" hidden>
+    <div id="p-join">
+      <h1>Recocido simulado</h1>
+      <p>Escribe tu nombre para entrar al simulador</p>
+      <input id="p-name" placeholder="Tu nombre" maxlength="20" autocomplete="name">
+      <br>
+      <button id="p-go" class="primary">Entrar</button>
+      <p id="p-msg" style="color:var(--muted);margin-top:12px"></p>
+    </div>
+
+    <div id="p-sim" hidden>
+      <h1>Tu simulador – <span id="p-title-name"></span></h1>
+      <p>Dibuja tu paisaje y experimenta. Todo se ve en la pantalla del anfitrión.</p>
+      <div class="card"><canvas id="pc"></canvas></div>
+      <div class="row">
+        <button id="p-draw" aria-pressed="false">Dibujar</button>
+        <button id="p-pause" aria-pressed="false">Pausa</button>
+        <button id="p-reset">Resetear</button>
+        <button id="p-grid" aria-pressed="false">Plano cartesiano</button>
+        <div class="knobrow">
+          <div class="knob" id="p-knob" role="slider" tabindex="0">
+            <svg id="p-kv" viewBox="0 0 200 200" width="130" height="130"></svg>
+          </div>
+          <div class="kt" id="p-kt"></div>
+        </div>
+      </div>
+      <div class="row">
+        <button id="p-send" class="primary">Enviar mi dibujo</button>
+        <span id="p-status" style="color:var(--muted)"></span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Vista grande de un jugador -->
+<div id="bigview" class="bigview" hidden>
+  <div class="inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h2 id="big-name" style="margin:0"></h2>
+      <button id="big-close">Cerrar</button>
+    </div>
+    <canvas id="big-c"></canvas>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(() => {
+  // ================== UTILIDADES COMUNES ==================
+  const N = 400, R = 1.4, T0 = 1, al = .992;
+  const def = (() => {
+    const a = [];
+    for (let i = 0; i <= N; i++) {
+      const x = i / N;
+      a.push(Math.sin(14 * x) * .35 + Math.sin(37 * x) * .12 + 1.6 * (x - .72) * (x - .72));
+    }
+    const lo = Math.min(...a), hi = Math.max(...a);
+    return a.map(v => (v - lo) / (hi - lo));
+  })();
+
+  function createSim(canvasId, knobId, kvId, ktId, drawBtnId, pauseBtnId, resetBtnId, gridBtnId) {
+    const c = document.getElementById(canvasId);
+    const g = c.getContext('2d');
+    const bD = document.getElementById(drawBtnId);
+    const bP = document.getElementById(pauseBtnId);
+    const bR = document.getElementById(resetBtnId);
+    const bG = document.getElementById(gridBtnId);
+    const knob = document.getElementById(knobId);
+    const kv = document.getElementById(kvId);
+    const kt = document.getElementById(ktId);
+
+    let paused = false, grid = false, drawing = false, down = false, last = null;
+    let L = def.slice(), D = [], W = 0, H = 0, dpr = 1;
+    let x, T, best, trail, hold, msg, mt, sv = .5;
+    const padL = 24, padR = 96, padT = 56, padB = 48;
+
+    function size() {
+      dpr = window.devicePixelRatio || 1;
+      W = c.clientWidth || 600;
+      H = Math.max(260, Math.min(420, Math.round(W * .48)));
+      c.style.height = H + 'px';
+      c.width = Math.round(W * dpr);
+      c.height = Math.round(H * dpr);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    const X = v => padL + v * (W - padL - padR);
+    const Y = l => H - padB - l * (H - padT - padB);
+    const lvl = v => {
+      const f = v * N, i = Math.min(N - 1, Math.floor(f)), t = f - i;
+      return L[i] * (1 - t) + L[i + 1] * t;
+    };
+    const E = v => lvl(v) * R;
+
+    function setPaused(on) {
+      paused = on;
+      bP.setAttribute('aria-pressed', on);
+      bP.textContent = on ? 'Iniciar' : 'Pausa';
+    }
+
+    function setDrawing(on) {
+      drawing = on;
+      down = false;
+      D = [];
+      bD.setAttribute('aria-pressed', on);
+      bD.textContent = on ? 'Cancelar dibujo' : 'Dibujar';
+      c.style.touchAction = on ? 'none' : 'auto';
+      c.style.cursor = on ? 'crosshair' : 'default';
+    }
+
+    function reset() {
+      x = .05 + Math.random() * .1;
+      T = T0;
+      best = x;
+      trail = [];
+      hold = 0;
+      msg = '';
+      mt = 0;
+    }
+
+    function step() {
+      if (T < .006) return;
+      const s = .02 + .1 * T / T0;
+      const n = Math.min(1, Math.max(0, x + (Math.random() - .5) * 2 * s));
+      const d = E(n) - E(x);
+      if (d < 0 || Math.random() < Math.exp(-d / T)) {
+        if (d > 0) { msg = 'acepta una peor solución'; mt = 40; }
+        x = n;
+        if (E(x) < E(best)) best = x;
+      }
+      T *= al;
+      trail.push(x);
+      if (trail.length > 50) trail.shift();
+    }
+
+    function drawGrid() {
+      g.fillStyle = '#ffffff';
+      g.fillRect(0, 0, W, H);
+      const gs = 40, ox = X(0), oy = Y(0);
+      g.lineWidth = 1;
+      g.strokeStyle = '#d4d9e1';
+      g.beginPath();
+      for (let gx = ox % gs; gx <= W; gx += gs) { g.moveTo(gx, 0); g.lineTo(gx, H); }
+      for (let gy = oy % gs; gy <= H; gy += gs) { g.moveTo(0, gy); g.lineTo(W, gy); }
+      g.stroke();
+      g.strokeStyle = '#1b1a2e';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(0, oy); g.lineTo(W, oy);
+      g.moveTo(ox, 0); g.lineTo(ox, H);
+      g.stroke();
+      g.fillStyle = '#1b1a2e';
+      g.font = '15px Helvetica Neue,Arial,sans-serif';
+      g.fillText('x', X(1) - 4, oy + 20);
+      g.fillText('costo', ox + 8, 40);
+    }
+
+    function draw() {
+      const cs = getComputedStyle(document.documentElement);
+      let fg = cs.getPropertyValue('--fg').trim();
+      let mu = cs.getPropertyValue('--muted').trim();
+      let ac = cs.getPropertyValue('--accent').trim();
+      g.clearRect(0, 0, W, H);
+      g.font = '15px Helvetica Neue,Arial,sans-serif';
+      g.lineJoin = 'round';
+
+      if (grid) {
+        fg = '#1b1a2e'; mu = '#6b6880'; ac = '#e4572e';
+        drawGrid();
+      }
+
+      if (drawing) {
+        g.strokeStyle = ac;
+        g.lineWidth = 5;
+        g.beginPath();
+        let f = true;
+        for (let i = 0; i <= N; i++) if (D[i] !== undefined) {
+          const px = X(i / N), py = Y(D[i]);
+          f ? g.moveTo(px, py) : g.lineTo(px, py);
+          f = false;
+        }
+        g.stroke();
+        g.fillStyle = mu;
+        g.fillText(D.some(v => v !== undefined) ? 'Suelta para aplicar tu curva' : 'Arrastra de lado a lado', padL, 28);
+        return;
+      }
+
+      g.strokeStyle = mu;
+      g.lineWidth = 4;
+      g.beginPath();
+      for (let i = 0; i <= N; i++) {
+        const px = X(i / N), py = Y(L[i]);
+        i ? g.lineTo(px, py) : g.moveTo(px, py);
+      }
+      g.stroke();
+
+      trail.forEach((v, i) => {
+        g.fillStyle = 'rgba(240,138,93,' + (i / trail.length * .5) + ')';
+        g.beginPath();
+        g.arc(X(v), Y(lvl(v)), 5, 0, 7);
+        g.fill();
+      });
+
+      g.strokeStyle = fg;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(X(best), Y(lvl(best)), 15, 0, 7);
+      g.stroke();
+
+      g.fillStyle = ac;
+      g.beginPath();
+      g.arc(X(x), Y(lvl(x)), 10, 0, 7);
+      g.fill();
+
+      const bx = W - 60, bw = 24, bh = H - padT - padB;
+      g.strokeStyle = mu;
+      g.lineWidth = 2;
+      g.strokeRect(bx, padT, bw, bh);
+      g.fillStyle = ac;
+      const h = bh * T / T0;
+      g.fillRect(bx, padT + bh - h, bw, h);
+      g.fillStyle = fg;
+      g.fillText('T = ' + T.toFixed(3), padL, 28);
+      g.fillText('T', bx + 6, H - 14);
+      if (mt > 0) {
+        g.fillStyle = ac;
+        g.fillText(msg, padL + 100, 28);
+        mt--;
+      }
+    }
+
+    function pt(e) {
+      const r = c.getBoundingClientRect();
+      const v = Math.min(1, Math.max(0, (e.clientX - r.left - padL) / (W - padL - padR)));
+      const l = Math.min(1, Math.max(0, (H - padB - (e.clientY - r.top)) / (H - padT - padB)));
+      return [Math.round(v * N), l];
+    }
+
+    c.addEventListener('pointerdown', e => {
+      if (!drawing) return;
+      down = true;
+      c.setPointerCapture(e.pointerId);
+      last = pt(e);
+      D[last[0]] = last[1];
+    });
+    c.addEventListener('pointermove', e => {
+      if (!drawing || !down) return;
+      const p = pt(e);
+      if (p[0] === last[0]) D[p[0]] = p[1];
+      else {
+        const a = Math.min(last[0], p[0]), b = Math.max(last[0], p[0]);
+        for (let i = a; i <= b; i++) {
+          const t = (i - last[0]) / (p[0] - last[0] || 1);
+          D[i] = last[1] + (p[1] - last[1]) * t;
+        }
+      }
+      last = p;
+    });
+    function finish() {
+      if (!drawing || !down) return;
+      down = false;
+      const idx = [];
+      for (let i = 0; i <= N; i++) if (D[i] !== undefined) idx.push(i);
+      if (idx.length < 20) { D = []; return; }
+      const a = idx[0], b = idx[idx.length - 1], nl = new Array(N + 1);
+      let k = 0;
+      for (let i = 0; i <= N; i++) {
+        if (i <= a) nl[i] = D[a];
+        else if (i >= b) nl[i] = D[b];
+        else {
+          while (idx[k + 1] < i) k++;
+          const i0 = idx[k], i1 = idx[k + 1], t = (i - i0) / (i1 - i0);
+          nl[i] = D[i0] + (D[i1] - D[i0]) * t;
+        }
+      }
+      L = nl;
+      setDrawing(false);
+      setPaused(false);
+      reset();
+    }
+    c.addEventListener('pointerup', finish);
+    c.addEventListener('pointercancel', finish);
+
+    bD.addEventListener('click', () => setDrawing(!drawing));
+    bP.addEventListener('click', () => setPaused(!paused));
+    bR.addEventListener('click', () => {
+      L = def.slice();
+      setDrawing(false);
+      setPaused(false);
+      reset();
+    });
+    // Botón grid independiente (no se ve afectado por Dibujar)
+    bG.addEventListener('click', () => {
+      grid = !grid;
+      bG.setAttribute('aria-pressed', grid);
+    });
+
+    // Knob
+    const NS = 'http://www.w3.org/2000/svg';
+    const ticks = [];
+    const mk = (t, a) => {
+      const e = document.createElementNS(NS, t);
+      for (const k in a) e.setAttribute(k, a[k]);
+      kv.appendChild(e);
+      return e;
+    };
+    for (let i = 0; i <= 40; i++) {
+      const th = (-135 + 270 * i / 40) * Math.PI / 180, r1 = 70, r2 = 76 + 14 * i / 40;
+      ticks.push(mk('line', {
+        x1: 100 + r1 * Math.sin(th), y1: 96 - r1 * Math.cos(th),
+        x2: 100 + r2 * Math.sin(th), y2: 96 - r2 * Math.cos(th),
+        'stroke-width': 3
+      }));
+    }
+    const cc = mk('circle', { cx: 100, cy: 96, r: 56 });
+    cc.style.fill = 'var(--fg)';
+    const ind = mk('line', { x1: 100, y1: 48, x2: 100, y2: 66, 'stroke-width': 6, 'stroke-linecap': 'round' });
+    ind.style.stroke = 'var(--bg)';
+    const lm = mk('text', { x: 34, y: 192, 'font-size': 28, 'font-weight': 700, 'text-anchor': 'middle' });
+    lm.textContent = '−'; lm.style.fill = 'var(--fg)';
+    const lp = mk('text', { x: 166, y: 192, 'font-size': 28, 'font-weight': 700, 'text-anchor': 'middle' });
+    lp.textContent = '+'; lp.style.fill = 'var(--fg)';
+
+    function upd() {
+      const deg = -135 + 270 * sv;
+      ind.setAttribute('transform', 'rotate(' + deg + ' 100 96)');
+      ticks.forEach((t, i) => {
+        const on = i / 40 <= sv;
+        t.style.stroke = on ? 'var(--accent)' : 'var(--muted)';
+        t.style.opacity = on ? 1 : .45;
+      });
+      kt.textContent = 'Velocidad ×' + (.05 * Math.pow(30, sv)).toFixed(2);
+      knob.setAttribute('aria-valuenow', Math.round(sv * 100));
+    }
+    function setSv(v) { sv = Math.min(1, Math.max(0, v)); upd(); }
+    function fromPtr(e) {
+      const r = knob.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2);
+      const dy = e.clientY - (r.top + r.height * .48);
+      let d = Math.atan2(dx, -dy) * 180 / Math.PI;
+      if (d > 135) d = 135;
+      if (d < -135) d = -135;
+      setSv((d + 135) / 270);
+    }
+    let kd = false;
+    knob.addEventListener('pointerdown', e => { kd = true; knob.setPointerCapture(e.pointerId); fromPtr(e); });
+    knob.addEventListener('pointermove', e => { if (kd) fromPtr(e); });
+    knob.addEventListener('pointerup', () => { kd = false; });
+    knob.addEventListener('pointercancel', () => { kd = false; });
+    knob.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { setSv(sv + .05); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { setSv(sv - .05); e.preventDefault(); }
+    });
+    knob.addEventListener('wheel', e => { e.preventDefault(); setSv(sv + (e.deltaY < 0 ? .04 : -.04)); }, { passive: false });
+    upd();
+
+    addEventListener('resize', size);
+    size();
+    reset();
+
+    let acc = 0;
+    function loop() {
+      if (!drawing && !paused) {
+        if (T < .006) {
+          if (++hold > 120) reset();
+        } else {
+          acc += .05 * Math.pow(30, sv);
+          while (acc >= 1) { step(); acc--; }
+        }
+      }
+      draw();
+      requestAnimationFrame(loop);
+    }
+    loop();
+
+    // API pública
+    return {
+      getState: () => ({
+        L: L.slice(),
+        x, T, best,
+        trail: trail.slice(),
+        drawing, grid, paused, sv
+      }),
+      setLandscape: (arr) => { if (arr && arr.length === N + 1) L = arr.slice(); },
+      canvas: c,
+      forceDraw: draw
+    };
+  }
+
+  // ================== HOST / PLAYER ==================
+  const room = new URLSearchParams(location.search).get('room');
+  const isPlayer = !!room;
+
+  if (isPlayer) {
+    document.getElementById('host-ui').hidden = true;
+    document.getElementById('player-ui').hidden = false;
+    playerMode();
+  } else {
+    hostMode();
+  }
+
+  // ---------- HOST ----------
+  function hostMode() {
+    const sim = createSim('c', 'knob', 'kv', 'kt', 'draw', 'pause', 'reset', 'grid');
+    const players = {}; // name -> {conn, state, miniCanvas, lastUpdate}
+    const saved = [];   // {name, L}
+
+    const id = 'rec' + Math.random().toString(36).slice(2, 7);
+    const peer = new Peer(id);
+
+    function base() {
+      if (location.protocol === 'file:') return document.getElementById('base').value.trim().split('?')[0].split('#')[0];
+      return location.origin + location.pathname;
+    }
+    function drawQR() {
+      const el = document.getElementById('qr');
+      el.innerHTML = '';
+      const b = base();
+      if (!b) { document.getElementById('h-url').textContent = ''; return; }
+      const u = b + '?room=' + id;
+      document.getElementById('h-url').textContent = u;
+      new QRCode(el, { text: u, width: 140, height: 140 });
+    }
+
+    peer.on('open', () => {
+      if (location.protocol === 'file:') {
+        document.getElementById('h-file').hidden = false;
+        document.getElementById('base').oninput = drawQR;
+      }
+      drawQR();
+    });
+    peer.on('error', e => console.warn('Peer error', e));
+    peer.on('disconnected', () => peer.reconnect());
+
+    peer.on('connection', conn => {
+      conn.on('data', m => {
+        if (m.t === 'join') {
+          const name = String(m.name || '').trim().slice(0, 20) || 'Anónimo';
+          if (players[name] && players[name].conn && players[name].conn.open) {
+            players[name].conn.close();
+          }
+          players[name] = { conn, state: null, name };
+          conn.send({ t: 'joined' });
+          renderPlayers();
+        } else if (m.t === 'state' && conn.pk) {
+          const p = players[conn.pk];
+          if (p) {
+            p.state = m.s;
+            p.lastUpdate = Date.now();
+            updateMini(p);
+          }
+        } else if (m.t === 'save' && conn.pk) {
+          const p = players[conn.pk];
+          if (p && m.L) {
+            saved.push({ name: p.name, L: m.L });
+            renderSaved();
+          }
+        }
+      });
+      conn.on('open', () => {});
+      conn.on('close', () => {
+        for (const k in players) {
+          if (players[k].conn === conn) {
+            delete players[k];
+            renderPlayers();
+            break;
+          }
+        }
+      });
+    });
+
+    // Cuando llega el nombre real lo asociamos
+    // (el jugador manda join con nombre)
+    // Ajustamos pk
+    const origOn = peer.on.bind(peer);
+    // Ya está manejado arriba
+
+    function renderPlayers() {
+      const box = document.getElementById('players');
+      box.innerHTML = '';
+      const names = Object.keys(players);
+      document.getElementById('h-n').textContent = names.length + ' conectados';
+
+      names.forEach(name => {
+        const p = players[name];
+        p.conn.pk = name; // por si acaso
+        const div = document.createElement('div');
+        div.className = 'mini';
+        div.dataset.name = name;
+        div.innerHTML = `<h3>${esc(name)}</h3><canvas width="400" height="200"></canvas>`;
+        const mc = div.querySelector('canvas');
+        p.mini = mc;
+        p.miniCtx = mc.getContext('2d');
+        div.onclick = () => showBig(p);
+        box.appendChild(div);
+        if (p.state) updateMini(p);
+      });
+    }
+
+    function updateMini(p) {
+      if (!p.miniCtx || !p.state) return;
+      const ctx = p.miniCtx;
+      const w = p.mini.width, h = p.mini.height;
+      ctx.clearRect(0, 0, w, h);
+      const s = p.state;
+      const L = s.L || def;
+      // dibujo simplificado
+      ctx.strokeStyle = '#6b6880';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) {
+        const px = (i / N) * w;
+        const py = h - 20 - L[i] * (h - 40);
+        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.stroke();
+      // punto
+      if (s.x != null) {
+        const px = s.x * w;
+        const py = h - 20 - (L[Math.round(s.x * N)] || 0.5) * (h - 40);
+        ctx.fillStyle = '#e4572e';
+        ctx.beginPath();
+        ctx.arc(px, py, 7, 0, 7);
+        ctx.fill();
+      }
+    }
+
+    function showBig(p) {
+      const bv = document.getElementById('bigview');
+      const bc = document.getElementById('big-c');
+      const bg = bc.getContext('2d');
+      document.getElementById('big-name').textContent = p.name;
+      bv.hidden = false;
+
+      function render() {
+        if (bv.hidden) return;
+        const s = p.state;
+        if (!s) { requestAnimationFrame(render); return; }
+        const W = bc.clientWidth || 700;
+        const H = Math.round(W * .5);
+        bc.width = W;
+        bc.height = H;
+        // reutilizamos lógica simple
+        const L = s.L || def;
+        bg.clearRect(0, 0, W, H);
+        bg.strokeStyle = '#6b6880';
+        bg.lineWidth = 4;
+        bg.beginPath();
+        for (let i = 0; i <= N; i++) {
+          const px = 30 + (i / N) * (W - 80);
+          const py = H - 40 - L[i] * (H - 80);
+          i ? bg.lineTo(px, py) : bg.moveTo(px, py);
+        }
+        bg.stroke();
+        if (s.x != null) {
+          const px = 30 + s.x * (W - 80);
+          const py = H - 40 - (L[Math.round(s.x * N)] || 0.5) * (H - 80);
+          bg.fillStyle = '#e4572e';
+          bg.beginPath();
+          bg.arc(px, py, 12, 0, 7);
+          bg.fill();
+        }
+        bg.fillStyle = '#1b1a2e';
+        bg.font = '16px sans-serif';
+        bg.fillText('T = ' + (s.T || 0).toFixed(3), 30, 28);
+        requestAnimationFrame(render);
+      }
+      render();
+    }
+    document.getElementById('big-close').onclick = () => {
+      document.getElementById('bigview').hidden = true;
+    };
+
+    function renderSaved() {
+      const box = document.getElementById('saved-list');
+      box.innerHTML = '<h3>Dibujos enviados</h3>';
+      saved.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.innerHTML = `<canvas width="240" height="80"></canvas><b>${esc(item.name)}</b>`;
+        const cv = div.querySelector('canvas');
+        const cx = cv.getContext('2d');
+        cx.strokeStyle = '#e4572e';
+        cx.lineWidth = 2;
+        cx.beginPath();
+        item.L.forEach((v, j) => {
+          const px = (j / N) * 240;
+          const py = 70 - v * 60;
+          j ? cx.lineTo(px, py) : cx.moveTo(px, py);
+        });
+        cx.stroke();
+        box.appendChild(div);
+      });
+    }
+
+    document.getElementById('btn-save').onclick = () => {
+      if (saved.length === 0) {
+        alert('Aún no hay dibujos enviados.');
+        return;
+      }
+      const fecha = new Date().toLocaleString('es-MX');
+      let html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Dibujos – Recocido</title>
+        <style>body{font-family:system-ui;margin:24px}h1{color:#e4572e}.item{margin:20px 0;padding:12px;border:1px solid #ddd;border-radius:10px}
+        canvas{width:100%;max-width:500px;height:auto;background:#f9f9f9;border-radius:8px}</style></head><body>
+        <h1>Dibujos del recocido simulado</h1><p>${fecha} · ${saved.length} participantes</p>`;
+      saved.forEach(item => {
+        // generamos un canvas temporal para exportar imagen
+        const tmp = document.createElement('canvas');
+        tmp.width = 500; tmp.height = 180;
+        const tx = tmp.getContext('2d');
+        tx.fillStyle = '#fff';
+        tx.fillRect(0, 0, 500, 180);
+        tx.strokeStyle = '#e4572e';
+        tx.lineWidth = 3;
+        tx.beginPath();
+        item.L.forEach((v, j) => {
+          const px = (j / N) * 480 + 10;
+          const py = 160 - v * 140;
+          j ? tx.lineTo(px, py) : tx.moveTo(px, py);
+        });
+        tx.stroke();
+        const data = tmp.toDataURL('image/png');
+        html += `<div class="item"><h3>${esc(item.name)}</h3><img src="${data}" alt="dibujo de ${esc(item.name)}"></div>`;
+      });
+      html += '</body></html>';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+      a.download = 'dibujos-recocido.html';
+      a.click();
+    };
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+    }
+  }
+
+  // ---------- PLAYER ----------
+  function playerMode() {
+    let conn = null, peer = null, joined = false;
+    const nameInput = document.getElementById('p-name');
+    try { nameInput.value = localStorage.getItem('rec_name') || ''; } catch (e) {}
+
+    document.getElementById('p-go').onclick = () => {
+      const name = nameInput.value.trim();
+      if (!name) return;
+      try { localStorage.setItem('rec_name', name); } catch (e) {}
+      document.getElementById('p-go').disabled = true;
+      document.getElementById('p-msg').textContent = 'Conectando…';
+
+      peer = new Peer();
+      peer.on('error', e => {
+        document.getElementById('p-msg').textContent = 'Error de conexión. Revisa que el anfitrión esté abierto.';
+        document.getElementById('p-go').disabled = false;
+      });
+      peer.on('open', () => {
+        conn = peer.connect(room, { reliable: true });
+        conn.on('open', () => {
+          conn.send({ t: 'join', name });
+        });
+        conn.on('data', m => {
+          if (m.t === 'joined') {
+            joined = true;
+            document.getElementById('p-join').hidden = true;
+            document.getElementById('p-sim').hidden = false;
+            document.getElementById('p-title-name').textContent = name;
+            startPlayerSim(conn, name);
+          }
+        });
+        conn.on('close', () => {
+          document.getElementById('p-msg').textContent = 'Se perdió la conexión.';
+          document.getElementById('p-go').disabled = false;
+          document.getElementById('p-join').hidden = false;
+          document.getElementById('p-sim').hidden = true;
+        });
+      });
+    };
+  }
+
+  function startPlayerSim(conn, name) {
+    const sim = createSim('pc', 'p-knob', 'p-kv', 'p-kt', 'p-draw', 'p-pause', 'p-reset', 'p-grid');
+
+    // Enviar estado lo más rápido posible (~10-12 veces por segundo)
+    setInterval(() => {
+      if (!conn || !conn.open) return;
+      const s = sim.getState();
+      // enviamos solo lo necesario para aligerar
+      conn.send({
+        t: 'state',
+        s: {
+          L: s.L,
+          x: s.x,
+          T: s.T,
+          best: s.best,
+          drawing: s.drawing
+        }
+      });
+    }, 90);
+
+    document.getElementById('p-send').onclick = () => {
+      const s = sim.getState();
+      conn.send({ t: 'save', L: s.L });
+      document.getElementById('p-status').textContent = '¡Dibujo enviado!';
+      setTimeout(() => document.getElementById('p-status').textContent = '', 3000);
+    };
+  }
+})();
+</script>
+</body>
+</html>
