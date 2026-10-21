@@ -1,244 +1,149 @@
-```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>QuizFree - Control Remoto</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Control remoto</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  padding: 24px;
-  min-height: 100vh;
-  background: #101827;
-  color: white;
-  font-family: Arial, sans-serif;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.control {
-  width: 100%;
-  max-width: 380px;
-  text-align: center;
-  background: #1e293b;
-  padding: 25px;
-  border-radius: 22px;
-}
-
-h1 {
-  margin-top: 0;
-  color: #60a5fa;
-}
-
-#status {
-  color: #fbbf24;
-  font-size: 14px;
-  margin: 18px 0;
-}
-
-#status.connected {
-  color: #4ade80;
-}
-
-button, input {
-  width: 100%;
-  padding: 16px;
-  margin: 7px 0;
-  border: 0;
-  border-radius: 12px;
-  font-size: 16px;
-}
-
-button {
-  background: #2563eb;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-button:active {
-  transform: scale(.98);
-}
-
-.secundario {
-  background: #334155;
-}
-
-input {
-  background: #0f172a;
-  color: white;
-  border: 1px solid #475569;
-  text-align: center;
-}
-
-p {
-  color: #94a3b8;
-  font-size: 13px;
-}
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; flex-direction: column; gap: 12px; padding: 16px;
+    background: #0f172a; color: #f1f5f9;
+    font-family: system-ui, -apple-system, sans-serif;
+    user-select: none; touch-action: manipulation;
+  }
+  h1 { font-size: 18px; margin: 0; text-align: center; }
+  #status {
+    text-align: center; font-weight: 600; font-size: 14px;
+    padding: 8px; border-radius: 8px; background: #1e293b; color: #facc15;
+  }
+  #status.ok { color: #4ade80; }
+  #status.err { color: #f87171; }
+  .pad { flex: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  button {
+    border: 0; border-radius: 16px; font-weight: 700; color: #fff;
+    background: #334155; cursor: pointer; font-family: inherit;
+  }
+  button:active { transform: scale(.97); filter: brightness(1.2); }
+  button:disabled { opacity: .4; }
+  #next { flex: 2; font-size: 28px; background: #2563eb; }
+  #prev { flex: 1; font-size: 22px; }
+  .goto { display: flex; gap: 8px; }
+  .goto input {
+    flex: 1; min-width: 0; padding: 12px; font-size: 18px; text-align: center;
+    border-radius: 12px; border: 1px solid #475569; background: #1e293b; color: #fff;
+  }
+  .goto button { padding: 0 20px; font-size: 16px; }
 </style>
 </head>
-
 <body>
+  <h1>📱 Control remoto</h1>
+  <div id="status">Conectando…</div>
 
-<div class="control">
-  <h1>🎮 QuizFree</h1>
-  <h3>Control de presentación</h3>
+  <div class="pad">
+    <button id="next" disabled>Siguiente ▶</button>
+    <button id="prev" disabled>◀ Anterior</button>
+  </div>
 
-  <div id="status">Conectando...</div>
-
-  <button id="btn-prev" class="secundario">
-    ◀ Anterior
-  </button>
-
-  <button id="btn-next">
-    Siguiente ▶
-  </button>
-
-  <hr style="border-color:#334155;margin:22px 0">
-
-  <input
-    id="slide-num"
-    type="number"
-    min="1"
-    placeholder="Número de diapositiva"
-  >
-
-  <button id="btn-goto" class="secundario">
-    Ir a diapositiva
-  </button>
-
-  <p>Mantén abierta la presentación en otra pestaña.</p>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <div class="goto">
+    <input id="slide" type="number" inputmode="numeric" min="1" placeholder="N.º de diapositiva">
+    <button id="go" disabled>Ir</button>
+  </div>
 
 <script>
-(() => {
-  const ROOM_ID = 'recocido-slides-2026';
+(function () {
+  'use strict';
 
-  const status = document.getElementById('status');
-  let peer = null;
-  let conn = null;
-  let retryTimer = null;
-  let stopped = false;
+  const params = new URLSearchParams(location.search);
+  const ROOM_ID = params.get('room');
 
-  function showStatus(message, connected = false) {
-    status.textContent = message;
-    status.className = connected ? 'connected' : '';
+  const statusEl = document.getElementById('status');
+  const btns = ['next', 'prev', 'go'].map(id => document.getElementById(id));
+  let peer = null, conn = null, retryTimer = null;
+
+  function setStatus(text, cls) {
+    statusEl.textContent = text;
+    statusEl.className = cls || '';
+  }
+  function setEnabled(on) { btns.forEach(b => b.disabled = !on); }
+
+  function send(msg) {
+    if (conn && conn.open) {
+      conn.send(msg);
+      if (navigator.vibrate) navigator.vibrate(15);
+    }
   }
 
   function connect() {
-    if (stopped || peer) return;
+    clearTimeout(retryTimer);
+    if (!peer || peer.destroyed) return;
+    setStatus('Conectando a la presentación…');
+    conn = peer.connect(ROOM_ID, { reliable: true });
 
-    showStatus('Conectando con la presentación...');
-
-    const p = new Peer();
-    peer = p;
-
-    p.on('open', () => {
-      if (peer !== p || stopped) return;
-
-      const c = p.connect(ROOM_ID, { reliable: true });
-      conn = c;
-
-      c.on('open', () => {
-        if (conn !== c) return;
-        showStatus('✓ ¡Conectado!', true);
-      });
-
-      c.on('data', msg => {
-        if (msg && msg.type === 'ready') {
-          showStatus('✓ Presentación lista', true);
-        }
-      });
-
-      c.on('close', () => {
-        if (conn !== c) return;
-        conn = null;
-        reconnect();
-      });
-
-      c.on('error', () => {
-        if (conn !== c) return;
-        conn = null;
-        reconnect();
-      });
+    conn.on('open', function () {
+      setStatus('✔ Conectado', 'ok');
+      setEnabled(true);
     });
+    conn.on('data', function (msg) {
+      if (msg && msg.type === 'ready') setStatus('✔ Conectado', 'ok');
+    });
+    conn.on('close', function () {
+      setEnabled(false);
+      setStatus('Conexión perdida. Reintentando…', 'err');
+      retryTimer = setTimeout(connect, 2000);
+    });
+    conn.on('error', function () {
+      setEnabled(false);
+      retryTimer = setTimeout(connect, 2000);
+    });
+  }
 
-    p.on('error', err => {
-      if (peer !== p) return;
-
-      console.log('PeerJS:', err.type);
-
+  function init() {
+    if (!ROOM_ID) {
+      setStatus('Falta el código de sala. Escanea el QR de la presentación.', 'err');
+      return;
+    }
+    if (!window.Peer) {
+      setStatus('No se pudo cargar PeerJS.', 'err');
+      return;
+    }
+    peer = new Peer();
+    peer.on('open', connect);
+    peer.on('disconnected', function () { if (!peer.destroyed) peer.reconnect(); });
+    peer.on('error', function (err) {
       if (err.type === 'peer-unavailable') {
-        showStatus('Abre primero la presentación...');
+        setEnabled(false);
+        setStatus('Presentación no encontrada. ¿Está abierta? Reintentando…', 'err');
+        retryTimer = setTimeout(connect, 2500);
       } else {
-        showStatus('Reconectando...');
+        setStatus('Error: ' + err.type, 'err');
       }
-
-      peer = null;
-      try { p.destroy(); } catch (e) {}
-      reconnect();
     });
   }
 
-  function reconnect() {
-    if (stopped || retryTimer) return;
-
-    showStatus('Desconectado. Reintentando...');
-
-    retryTimer = setTimeout(() => {
-      retryTimer = null;
-      peer = null;
-      connect();
-    }, 3000);
-  }
-
-  function send(type, extra = {}) {
-    if (!conn || !conn.open) {
-      showStatus('Espera a que se conecte...');
-      return;
-    }
-
-    conn.send({ type, ...extra });
-  }
-
-  document.getElementById('btn-next').onclick =
-    () => send('next');
-
-  document.getElementById('btn-prev').onclick =
-    () => send('prev');
-
-  document.getElementById('btn-goto').onclick = () => {
-    const num = Number(
-      document.getElementById('slide-num').value
-    );
-
-    if (!Number.isInteger(num) || num < 1) {
-      showStatus('Escribe un número válido.');
-      return;
-    }
-
-    send('goto', { slide: num });
-  };
-
-  window.addEventListener('pagehide', () => {
-    stopped = true;
-    if (retryTimer) clearTimeout(retryTimer);
-    if (peer && !peer.destroyed) peer.destroy();
+  document.getElementById('next').addEventListener('click', () => send({ type: 'next' }));
+  document.getElementById('prev').addEventListener('click', () => send({ type: 'prev' }));
+  document.getElementById('go').addEventListener('click', function () {
+    const n = parseInt(document.getElementById('slide').value, 10);
+    if (Number.isInteger(n) && n >= 1) send({ type: 'goto', slide: n });
   });
 
-  connect();
+  // Mantener la pantalla encendida mientras se usa el control
+  async function keepAwake() {
+    try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) {}
+  }
+  keepAwake();
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') {
+      keepAwake();
+      if (!conn || !conn.open) connect();
+    }
+  });
+
+  init();
 })();
 </script>
-
 </body>
 </html>
-```
