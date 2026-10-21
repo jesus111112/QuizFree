@@ -3106,39 +3106,122 @@ VALENZUELA AYALA JESUS</div></div></div></div></div></section>
 </main>
 <div class="deck-pager" aria-hidden="true"></div>
 
-<!-- ===== CONTROL REMOTO PEERJS ===== -->
+<!-- CONTROL REMOTO PEERJS: PRESENTACIÓN -->
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
-(function(){
-  // Cambia este ID si quieres (debe coincidir con el del control)
+(function () {
+  'use strict';
+
   const ROOM_ID = 'recocido-slides-2026';
+  let peer = null;
 
-  const peer = new Peer(ROOM_ID);
-  
-  peer.on('open', id => {
-    console.log('Presentación lista para control remoto. ID:', id);
-  });
+  // Navegación compatible con Reveal.js y con presentaciones
+  // que utilicen un número de diapositiva en el hash.
+  function navigate(action, slide) {
+    if (window.Reveal &&
+        typeof window.Reveal.next === 'function') {
 
-  peer.on('connection', conn => {
-    console.log('Control remoto conectado');
-    
-    conn.on('data', msg => {
-      if (msg.type === 'next') {
-        // Intenta avanzar diapositiva
-        const cur = parseInt(location.hash.replace('#','') || '1', 10);
-        location.hash = cur + 1;
-      } 
-      else if (msg.type === 'prev') {
-        const cur = parseInt(location.hash.replace('#','') || '1', 10);
-        location.hash = Math.max(1, cur - 1);
-      } 
-      else if (msg.type === 'goto' && msg.slide) {
-        location.hash = msg.slide;
+      if (action === 'next') {
+        window.Reveal.next();
+        return;
+      }
+
+      if (action === 'prev') {
+        window.Reveal.prev();
+        return;
+      }
+
+      if (action === 'goto') {
+        const target = Number(slide);
+
+        if (Number.isInteger(target) && target >= 1) {
+          // Reveal.js utiliza índices que empiezan en cero.
+          window.Reveal.slide(target - 1, 0);
+        }
+        return;
+      }
+    }
+
+    // Alternativa para presentaciones que usan #1, #2, #3...
+    const current = parseInt(
+      location.hash.replace(/^#/, ''), 10
+    );
+
+    const currentSlide =
+      Number.isInteger(current) && current >= 1 ? current : 1;
+
+    if (action === 'next') {
+      location.hash = String(currentSlide + 1);
+    } else if (action === 'prev') {
+      location.hash = String(Math.max(1, currentSlide - 1));
+    } else if (action === 'goto') {
+      const target = Number(slide);
+
+      if (Number.isInteger(target) && target >= 1) {
+        location.hash = String(target);
+      }
+    }
+  }
+
+  function startPresentationPeer() {
+    if (peer && !peer.destroyed) return;
+
+    peer = new Peer(ROOM_ID);
+
+    peer.on('open', function (id) {
+      console.log('Presentación registrada en PeerJS:', id);
+    });
+
+    peer.on('connection', function (conn) {
+      console.log('Control remoto detectado');
+
+      conn.on('open', function () {
+        console.log('Canal de control conectado');
+
+        conn.send({
+          type: 'ready',
+          message: 'Presentación conectada'
+        });
+      });
+
+      conn.on('data', function (msg) {
+        if (!msg || typeof msg !== 'object') return;
+
+        if (msg.type === 'next' || msg.type === 'prev') {
+          navigate(msg.type);
+        } else if (msg.type === 'goto') {
+          navigate('goto', msg.slide);
+        } else if (msg.type === 'ping') {
+          conn.send({ type: 'pong' });
+        }
+      });
+
+      conn.on('error', function (err) {
+        console.error('Error en el canal de control:', err);
+      });
+
+      conn.on('close', function () {
+        console.log('El control remoto se desconectó');
+      });
+    });
+
+    peer.on('error', function (err) {
+      console.error('Error PeerJS en presentación:', err.type, err);
+
+      if (err.type === 'unavailable-id') {
+        console.error(
+          'El ID de sala ya está ocupado. Cierra las otras ' +
+          'pestañas de la presentación y vuelve a intentarlo.'
+        );
       }
     });
-  });
+  }
 
-  peer.on('error', err => console.warn('Peer error:', err));
+  if (window.Peer) {
+    startPresentationPeer();
+  } else {
+    console.error('No se pudo cargar la biblioteca PeerJS.');
+  }
 })();
 </script>
 </body>
