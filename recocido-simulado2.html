@@ -3,132 +3,151 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Recocido simulado – Multiplayer</title>
+<title>Recocido simulado</title>
 <style>
-:root{--bg:#f6f1ea;--fg:#1b1a2e;--muted:#6b6880;--card:#ffffff;--line:#d9d2c4;--accent:#e4572e;--onaccent:#ffffff;
-box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1a2e;--fg:#f6f1ea;--muted:#b9b4cc;--card:#27263f;--line:#3a3958;--accent:#f08a5d;--onaccent:#1b1a2e}}
+:root{--bg:#f6f1ea;--fg:#1b1a2e;--muted:#6b6880;--card:#fff;--line:#d9d2c4;--accent:#e4572e;--onaccent:#fff}
 :root[data-theme="dark"]{--bg:#1b1a2e;--fg:#f6f1ea;--muted:#b9b4cc;--card:#27263f;--line:#3a3958;--accent:#f08a5d;--onaccent:#1b1a2e}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;line-height:1.5}
-main{max-width:1100px;margin:0 auto;padding:20px 16px 40px}
-h1{font-family:Georgia,serif;font-weight:400;font-size:clamp(24px,5vw,40px);line-height:1.15;margin:0 0 8px}
-p{margin:0 0 14px;color:var(--muted);font-size:16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;line-height:1.5;transition:background .25s,color .25s}
+main{max-width:1060px;margin:0 auto;padding:20px 16px 40px}
+h1{font-family:Georgia,serif;font-weight:400;font-size:clamp(22px,4.5vw,36px);margin:0 0 6px}
+p{margin:0 0 12px;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px}
 canvas{display:block;width:100%;border-radius:10px}
-.row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;align-items:center}
-button{font:inherit;font-size:16px;font-weight:600;min-height:44px;padding:0 18px;border-radius:999px;border:2px solid var(--accent);background:transparent;color:var(--fg);cursor:pointer}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}
+button{font:inherit;font-weight:600;min-height:42px;padding:0 16px;border-radius:999px;border:2px solid var(--accent);background:transparent;color:var(--fg);cursor:pointer}
 button.primary{background:var(--accent);color:var(--onaccent)}
 button[aria-pressed="true"]{background:var(--accent);color:var(--onaccent)}
 button:hover{background:var(--accent);color:var(--onaccent)}
-button:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
-button:disabled{opacity:.45;cursor:default}
-small{color:var(--muted);font-size:14px}
-.knobrow{display:flex;align-items:center;gap:8px}
-.knob{width:150px;height:150px;touch-action:none;cursor:grab;border-radius:50%;user-select:none}
-.knob:active{cursor:grabbing}
-.knob:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
-.kt{font-size:15px;font-weight:600;min-width:130px}
-#qrbox{display:flex;flex-direction:column;align-items:center;gap:6px;margin-left:8px}
-#qrbox canvas,#qrbox img{border-radius:8px}
-.small{font-size:.8rem;opacity:.75;word-break:break-all;max-width:180px;text-align:center}
-.players{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
-.mini{width:220px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;transition:.15s}
-.mini:hover,.mini.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
-.mini h3{margin:0 0 6px;font-size:14px;font-weight:700}
-.mini canvas{width:100%;height:110px;border-radius:8px;background:#fff}
-.bigview{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
-.bigview .inner{background:var(--card);border-radius:16px;padding:16px;max-width:900px;width:100%}
-.bigview canvas{width:100%;height:auto;border-radius:10px}
+.knob{width:140px;height:140px;border-radius:50%;touch-action:none;cursor:grab}
+.kt{font-size:14px;font-weight:600;min-width:120px}
+.formulas{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+@media(max-width:640px){.formulas{grid-template-columns:1fr}}
+.fcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.fcard h3{margin:0 0 6px;font-size:13px;color:var(--muted)}
+.formula{font-family:Georgia,serif;font-size:1.25rem;margin:4px 0 8px}
+.vals{font-size:13px;line-height:1.55}
+.live{font-variant-numeric:tabular-nums;color:var(--accent)}
+.theme-btn{width:44px;height:44px;padding:0;border-radius:50%;border:2px solid var(--line);background:var(--card);display:grid;place-items:center;position:relative}
+.theme-btn svg{width:22px;height:22px;transition:.3s}
+.theme-btn .moon{position:absolute;opacity:0;transform:rotate(-90deg) scale(.4)}
+:root[data-theme="dark"] .theme-btn .sun{opacity:0;transform:rotate(90deg) scale(.4)}
+:root[data-theme="dark"] .theme-btn .moon{opacity:1;transform:none}
+.header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+#qrbox{text-align:center;font-size:11px;max-width:150px}
+.players{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.mini{width:200px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer}
+.mini h3{margin:0 0 4px;font-size:13px}
+.mini canvas{width:100%;height:90px;border-radius:6px;background:#fff}
+.bigview{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:40;padding:16px}
+.bigview .inner{background:var(--card);border-radius:14px;padding:14px;width:100%;max-width:820px}
 [hidden]{display:none!important}
-#p-join{max-width:420px;margin:60px auto;text-align:center}
-#p-join input{width:100%;max-width:280px;padding:14px;font-size:1.2rem;border-radius:10px;border:2px solid var(--line);text-align:center;margin:12px 0}
-.saved{margin-top:20px}
-.saved .item{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
-.saved canvas{width:120px;height:60px;border-radius:6px}
+#p-join{max-width:380px;margin:50px auto;text-align:center}
+#p-join input{width:100%;max-width:260px;padding:12px;font-size:1.1rem;border-radius:10px;border:2px solid var(--line);text-align:center;margin:10px 0}
 </style>
 </head>
 <body>
 <main>
-  <!-- ============ ANFITRIÓN ============ -->
-  <div id="host-ui">
-    <h1>Recocido simulado: prueba tu propio paisaje</h1>
-    <p>El punto naranja busca el valle más bajo. Pulsa <b>Dibujar</b> y traza tu curva. Los demás se conectan por QR y ves lo que hacen en tiempo real.</p>
-
-    <div class="card"><canvas id="c" aria-label="Paisaje de costo"></canvas></div>
-
-    <div class="row">
-      <button id="draw" aria-pressed="false">Dibujar</button>
-      <button id="pause" aria-pressed="false">Pausa</button>
-      <button id="reset">Resetear</button>
-      <button id="grid" aria-pressed="false">Plano cartesiano</button>
-
-      <div class="knobrow">
-        <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Velocidad" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
-          <svg id="kv" viewBox="0 0 200 200" width="150" height="150"></svg>
-        </div>
-        <div class="kt" id="kt"></div>
-      </div>
-
-      <div id="qrbox">
-        <div id="qr"></div>
-        <div id="h-url" class="small"></div>
-        <div id="h-file" hidden>
-          <input id="base" placeholder="https://tu-sitio.com/archivo.html" style="width:160px;font-size:12px;padding:6px">
-        </div>
-      </div>
-    </div>
-
-    <small>Aro: mejor solución. Termómetro: temperatura T. Las miniaturas de abajo muestran a los participantes en vivo.</small>
-
-    <div class="row" style="margin-top:20px">
-      <button id="btn-save" class="primary">Descargar HTML con dibujos enviados</button>
-      <span id="h-n" style="font-weight:700">0 conectados</span>
-    </div>
-
-    <div class="players" id="players"></div>
-    <div class="saved" id="saved-list"></div>
-  </div>
-
-  <!-- ============ JUGADOR ============ -->
-  <div id="player-ui" hidden>
-    <div id="p-join">
+<!-- HOST -->
+<div id="host-ui">
+  <div class="header">
+    <div>
       <h1>Recocido simulado</h1>
-      <p>Escribe tu nombre para entrar al simulador</p>
-      <input id="p-name" placeholder="Tu nombre" maxlength="20" autocomplete="name">
-      <br>
-      <button id="p-go" class="primary">Entrar</button>
-      <p id="p-msg" style="color:var(--muted);margin-top:12px"></p>
+      <p>Pulsa <b>Iniciar</b> para comenzar. Dibuja tu propio paisaje. Los demás se conectan por QR.</p>
     </div>
+    <button class="theme-btn" id="theme" aria-label="Tema">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 14.3A9 9 0 1 1 9.7 3a7 7 0 0 0 11.3 11.3z"/></svg>
+    </button>
+  </div>
 
-    <div id="p-sim" hidden>
-      <h1>Tu simulador – <span id="p-title-name"></span></h1>
-      <p>Dibuja tu paisaje y experimenta. Todo se ve en la pantalla del anfitrión.</p>
-      <div class="card"><canvas id="pc"></canvas></div>
-      <div class="row">
-        <button id="p-draw" aria-pressed="false">Dibujar</button>
-        <button id="p-pause" aria-pressed="false">Pausa</button>
-        <button id="p-reset">Resetear</button>
-        <button id="p-grid" aria-pressed="false">Plano cartesiano</button>
-        <div class="knobrow">
-          <div class="knob" id="p-knob" role="slider" tabindex="0">
-            <svg id="p-kv" viewBox="0 0 200 200" width="130" height="130"></svg>
-          </div>
-          <div class="kt" id="p-kt"></div>
-        </div>
-      </div>
-      <div class="row">
-        <button id="p-send" class="primary">Enviar mi dibujo</button>
-        <span id="p-status" style="color:var(--muted)"></span>
-      </div>
+  <div class="card"><canvas id="c"></canvas></div>
+
+  <div class="formulas">
+    <div class="fcard">
+      <h3>Probabilidad de aceptar peor solución</h3>
+      <div class="formula">P = exp(−ΔE / T)</div>
+      <div class="vals">ΔE = <span class="live" id="v-dE">—</span><br>T = <span class="live" id="v-T">—</span><br>P = <span class="live" id="v-P">—</span></div>
+    </div>
+    <div class="fcard">
+      <h3>Enfriamiento</h3>
+      <div class="formula">T<sub>(k+1)</sub> = α · T<sub>(k)</sub></div>
+      <div class="vals">α = 0.992<br>T actual = <span class="live" id="v-T2">—</span><br>Próxima T ≈ <span class="live" id="v-Tnext">—</span></div>
     </div>
   </div>
+
+  <div class="row">
+    <button id="draw" aria-pressed="false">Dibujar</button>
+    <button id="pause" aria-pressed="true">Iniciar</button>
+    <button id="reset">Resetear</button>
+    <button id="grid" aria-pressed="false">Plano cartesiano</button>
+    <div class="knob" id="knob" role="slider" tabindex="0"><svg id="kv" viewBox="0 0 200 200" width="140" height="140"></svg></div>
+    <div class="kt" id="kt"></div>
+    <div id="qrbox"><div id="qr"></div><div id="h-url" style="font-size:11px;word-break:break-all"></div></div>
+  </div>
+
+  <div class="row">
+    <button id="btn-save" class="primary">Descargar dibujos (HTML)</button>
+    <span id="h-n" style="font-weight:700">0 conectados</span>
+  </div>
+  <div class="players" id="players"></div>
+  <div id="saved-list"></div>
+</div>
+
+<!-- PLAYER -->
+<div id="player-ui" hidden>
+  <div id="p-join">
+    <button class="theme-btn" id="theme2" style="float:right" aria-label="Tema">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 14.3A9 9 0 1 1 9.7 3a7 7 0 0 0 11.3 11.3z"/></svg>
+    </button>
+    <h1>Recocido simulado</h1>
+    <p>Escribe tu nombre</p>
+    <input id="p-name" placeholder="Tu nombre" maxlength="20">
+    <br><button id="p-go" class="primary">Entrar</button>
+    <p id="p-msg" style="color:var(--muted)"></p>
+  </div>
+
+  <div id="p-sim" hidden>
+    <div class="header">
+      <div><h1>Tu simulador – <span id="p-title-name"></span></h1></div>
+      <button class="theme-btn" id="theme3" aria-label="Tema">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 14.3A9 9 0 1 1 9.7 3a7 7 0 0 0 11.3 11.3z"/></svg>
+      </button>
+    </div>
+    <div class="card"><canvas id="pc"></canvas></div>
+    <div class="formulas">
+      <div class="fcard">
+        <h3>Probabilidad de aceptar peor solución</h3>
+        <div class="formula">P = exp(−ΔE / T)</div>
+        <div class="vals">ΔE = <span class="live" id="pv-dE">—</span><br>T = <span class="live" id="pv-T">—</span><br>P = <span class="live" id="pv-P">—</span></div>
+      </div>
+      <div class="fcard">
+        <h3>Enfriamiento</h3>
+        <div class="formula">T<sub>(k+1)</sub> = α · T<sub>(k)</sub></div>
+        <div class="vals">α = 0.992<br>T actual = <span class="live" id="pv-T2">—</span><br>Próxima T ≈ <span class="live" id="pv-Tnext">—</span></div>
+      </div>
+    </div>
+    <div class="row">
+      <button id="p-draw" aria-pressed="false">Dibujar</button>
+      <button id="p-pause" aria-pressed="true">Iniciar</button>
+      <button id="p-reset">Resetear</button>
+      <button id="p-grid" aria-pressed="false">Plano cartesiano</button>
+      <div class="knob" id="p-knob"><svg id="p-kv" viewBox="0 0 200 200" width="120" height="120"></svg></div>
+      <div class="kt" id="p-kt"></div>
+    </div>
+    <div class="row">
+      <button id="p-send" class="primary">Enviar mi dibujo</button>
+      <span id="p-status"></span>
+    </div>
+  </div>
+</div>
 </main>
 
-<!-- Vista grande de un jugador -->
 <div id="bigview" class="bigview" hidden>
   <div class="inner">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <h2 id="big-name" style="margin:0"></h2>
       <button id="big-close">Cerrar</button>
     </div>
@@ -139,664 +158,195 @@ small{color:var(--muted);font-size:14px}
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-(() => {
-  // ================== UTILIDADES COMUNES ==================
-  const N = 400, R = 1.4, T0 = 1, al = .992;
-  const def = (() => {
-    const a = [];
-    for (let i = 0; i <= N; i++) {
-      const x = i / N;
-      a.push(Math.sin(14 * x) * .35 + Math.sin(37 * x) * .12 + 1.6 * (x - .72) * (x - .72));
-    }
-    const lo = Math.min(...a), hi = Math.max(...a);
-    return a.map(v => (v - lo) / (hi - lo));
-  })();
+(()=>{
+/* ===== TEMA ===== */
+const applyTheme=t=>{document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('rec_theme',t)}catch(e){}};
+const toggleTheme=()=>applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');
+(function(){let s=null;try{s=localStorage.getItem('rec_theme')}catch(e){}
+if(s==='dark'||s==='light')applyTheme(s);
+else applyTheme(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+})();
+document.querySelectorAll('.theme-btn').forEach(b=>b.onclick=toggleTheme);
 
-  function createSim(canvasId, knobId, kvId, ktId, drawBtnId, pauseBtnId, resetBtnId, gridBtnId) {
-    const c = document.getElementById(canvasId);
-    const g = c.getContext('2d');
-    const bD = document.getElementById(drawBtnId);
-    const bP = document.getElementById(pauseBtnId);
-    const bR = document.getElementById(resetBtnId);
-    const bG = document.getElementById(gridBtnId);
-    const knob = document.getElementById(knobId);
-    const kv = document.getElementById(kvId);
-    const kt = document.getElementById(ktId);
+/* ===== SIMULADOR ===== */
+const N=400,R=1.4,T0=1,al=.992;
+const def=(()=>{const a=[];for(let i=0;i<=N;i++){const x=i/N;a.push(Math.sin(14*x)*.35+Math.sin(37*x)*.12+1.6*(x-.72)*(x-.72))}
+const lo=Math.min(...a),hi=Math.max(...a);return a.map(v=>(v-lo)/(hi-lo))})();
 
-    let paused = false, grid = false, drawing = false, down = false, last = null;
-    let L = def.slice(), D = [], W = 0, H = 0, dpr = 1;
-    let x, T, best, trail, hold, msg, mt, sv = .5;
-    const padL = 24, padR = 96, padT = 56, padB = 48;
+function createSim(cid,kid,kvid,ktid,did,pid,rid,gid,vals){
+  const c=document.getElementById(cid),g=c.getContext('2d');
+  const bD=document.getElementById(did),bP=document.getElementById(pid),bR=document.getElementById(rid),bG=document.getElementById(gid);
+  const knob=document.getElementById(kid),kv=document.getElementById(kvid),kt=document.getElementById(ktid);
+  let paused=true,grid=false,drawing=false,down=false,last=null,L=def.slice(),D=[],W=0,H=0,dpr=1;
+  let x,T,best,trail,hold,msg,mt,sv=.5,lastDE=0;
+  const padL=22,padR=80,padT=48,padB=40;
 
-    function size() {
-      dpr = window.devicePixelRatio || 1;
-      W = c.clientWidth || 600;
-      H = Math.max(260, Math.min(420, Math.round(W * .48)));
-      c.style.height = H + 'px';
-      c.width = Math.round(W * dpr);
-      c.height = Math.round(H * dpr);
-      g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
+  function size(){dpr=devicePixelRatio||1;W=c.clientWidth||560;H=Math.max(240,Math.min(400,Math.round(W*.48)));
+    c.style.height=H+'px';c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);g.setTransform(dpr,0,0,dpr,0,0)}
+  const X=v=>padL+v*(W-padL-padR),Y=l=>H-padB-l*(H-padT-padB);
+  const lvl=v=>{const f=v*N,i=Math.min(N-1,Math.floor(f)),t=f-i;return L[i]*(1-t)+L[i+1]*t};
+  const E=v=>lvl(v)*R;
 
-    const X = v => padL + v * (W - padL - padR);
-    const Y = l => H - padB - l * (H - padT - padB);
-    const lvl = v => {
-      const f = v * N, i = Math.min(N - 1, Math.floor(f)), t = f - i;
-      return L[i] * (1 - t) + L[i + 1] * t;
-    };
-    const E = v => lvl(v) * R;
+  function setPaused(on){paused=on;bP.setAttribute('aria-pressed',on);bP.textContent=on?'Iniciar':'Pausa'}
+  function setDrawing(on){drawing=on;down=false;D=[];bD.setAttribute('aria-pressed',on);bD.textContent=on?'Cancelar':'Dibujar';
+    c.style.touchAction=on?'none':'auto';c.style.cursor=on?'crosshair':'default'}
+  function reset(){x=.05+Math.random()*.1;T=T0;best=x;trail=[];hold=0;msg='';mt=0;lastDE=0;updF()}
+  function step(){if(T<.006)return;const s=.02+.1*T/T0,n=Math.min(1,Math.max(0,x+(Math.random()-.5)*2*s)),d=E(n)-E(x);
+    lastDE=d;if(d<0||Math.random()<Math.exp(-d/T)){if(d>0){msg='acepta peor solución';mt=35}x=n;if(E(x)<E(best))best=x}
+    T*=al;trail.push(x);if(trail.length>45)trail.shift();updF()}
+  function updF(){if(!vals)return;const P=lastDE<=0?1:Math.exp(-lastDE/T);
+    const el=id=>document.getElementById(id);
+    if(el(vals.dE))el(vals.dE).textContent=lastDE.toFixed(4);
+    if(el(vals.T))el(vals.T).textContent=T.toFixed(4);
+    if(el(vals.P))el(vals.P).textContent=P.toFixed(4);
+    if(el(vals.T2))el(vals.T2).textContent=T.toFixed(4);
+    if(el(vals.Tnext))el(vals.Tnext).textContent=(T*al).toFixed(4)}
 
-    function setPaused(on) {
-      paused = on;
-      bP.setAttribute('aria-pressed', on);
-      bP.textContent = on ? 'Iniciar' : 'Pausa';
-    }
+  function draw(){
+    const cs=getComputedStyle(document.documentElement);
+    let fg=cs.getPropertyValue('--fg').trim(),mu=cs.getPropertyValue('--muted').trim(),ac=cs.getPropertyValue('--accent').trim();
+    g.clearRect(0,0,W,H);g.font='14px system-ui';g.lineJoin='round';
+    if(grid){g.fillStyle='#fff';g.fillRect(0,0,W,H);const gs=36,ox=X(0),oy=Y(0);
+      g.strokeStyle='#d4d9e1';g.lineWidth=1;g.beginPath();
+      for(let gx=ox%gs;gx<=W;gx+=gs){g.moveTo(gx,0);g.lineTo(gx,H)}for(let gy=oy%gs;gy<=H;gy+=gs){g.moveTo(0,gy);g.lineTo(W,gy)}g.stroke();
+      g.strokeStyle='#1b1a2e';g.lineWidth=2;g.beginPath();g.moveTo(0,oy);g.lineTo(W,oy);g.moveTo(ox,0);g.lineTo(ox,H);g.stroke();
+      fg='#1b1a2e';mu='#6b6880';ac='#e4572e'}
+    if(drawing){g.strokeStyle=ac;g.lineWidth=4;g.beginPath();let f=true;
+      for(let i=0;i<=N;i++)if(D[i]!==undefined){const px=X(i/N),py=Y(D[i]);f?g.moveTo(px,py):g.lineTo(px,py);f=false}
+      g.stroke();g.fillStyle=mu;g.fillText(D.some(v=>v!==undefined)?'Suelta para aplicar':'Arrastra para dibujar',padL,26);return}
+    g.strokeStyle=mu;g.lineWidth=3.5;g.beginPath();
+    for(let i=0;i<=N;i++){const px=X(i/N),py=Y(L[i]);i?g.lineTo(px,py):g.moveTo(px,py)}g.stroke();
+    trail.forEach((v,i)=>{g.fillStyle=`rgba(240,138,93,${i/trail.length*.45})`;g.beginPath();g.arc(X(v),Y(lvl(v)),4.5,0,7);g.fill()});
+    g.strokeStyle=fg;g.lineWidth=2.5;g.beginPath();g.arc(X(best),Y(lvl(best)),13,0,7);g.stroke();
+    g.fillStyle=ac;g.beginPath();g.arc(X(x),Y(lvl(x)),9,0,7);g.fill();
+    const bx=W-52,bw=20,bh=H-padT-padB;g.strokeStyle=mu;g.lineWidth=1.5;g.strokeRect(bx,padT,bw,bh);
+    g.fillStyle=ac;g.fillRect(bx,padT+bh-bh*T/T0,bw,bh*T/T0);
+    g.fillStyle=fg;g.fillText('T = '+T.toFixed(3),padL,26);if(mt>0){g.fillStyle=ac;g.fillText(msg,padL+90,26);mt--}}
 
-    function setDrawing(on) {
-      drawing = on;
-      down = false;
-      D = [];
-      bD.setAttribute('aria-pressed', on);
-      bD.textContent = on ? 'Cancelar dibujo' : 'Dibujar';
-      c.style.touchAction = on ? 'none' : 'auto';
-      c.style.cursor = on ? 'crosshair' : 'default';
-    }
+  function pt(e){const r=c.getBoundingClientRect();
+    const v=Math.min(1,Math.max(0,(e.clientX-r.left-padL)/(W-padL-padR)));
+    const l=Math.min(1,Math.max(0,(H-padB-(e.clientY-r.top))/(H-padT-padB)));return[Math.round(v*N),l]}
+  c.onpointerdown=e=>{if(!drawing)return;down=true;c.setPointerCapture(e.pointerId);last=pt(e);D[last[0]]=last[1]};
+  c.onpointermove=e=>{if(!drawing||!down)return;const p=pt(e);
+    if(p[0]===last[0])D[p[0]]=p[1];else{const a=Math.min(last[0],p[0]),b=Math.max(last[0],p[0]);
+      for(let i=a;i<=b;i++){const t=(i-last[0])/(p[0]-last[0]||1);D[i]=last[1]+(p[1]-last[1])*t}}last=p};
+  function finish(){if(!drawing||!down)return;down=false;const idx=[];for(let i=0;i<=N;i++)if(D[i]!==undefined)idx.push(i);
+    if(idx.length<18){D=[];return}const a=idx[0],b=idx.at(-1),nl=new Array(N+1);let k=0;
+    for(let i=0;i<=N;i++){if(i<=a)nl[i]=D[a];else if(i>=b)nl[i]=D[b];
+      else{while(idx[k+1]<i)k++;const i0=idx[k],i1=idx[k+1],t=(i-i0)/(i1-i0);nl[i]=D[i0]+(D[i1]-D[i0])*t}}
+    L=nl;setDrawing(false);setPaused(false);reset()}
+  c.onpointerup=c.onpointercancel=finish;
 
-    function reset() {
-      x = .05 + Math.random() * .1;
-      T = T0;
-      best = x;
-      trail = [];
-      hold = 0;
-      msg = '';
-      mt = 0;
-    }
+  bD.onclick=()=>setDrawing(!drawing);
+  bP.onclick=()=>setPaused(!paused);
+  bR.onclick=()=>{L=def.slice();setDrawing(false);setPaused(true);reset()};
+  bG.onclick=()=>{grid=!grid;bG.setAttribute('aria-pressed',grid)};
 
-    function step() {
-      if (T < .006) return;
-      const s = .02 + .1 * T / T0;
-      const n = Math.min(1, Math.max(0, x + (Math.random() - .5) * 2 * s));
-      const d = E(n) - E(x);
-      if (d < 0 || Math.random() < Math.exp(-d / T)) {
-        if (d > 0) { msg = 'acepta una peor solución'; mt = 40; }
-        x = n;
-        if (E(x) < E(best)) best = x;
-      }
-      T *= al;
-      trail.push(x);
-      if (trail.length > 50) trail.shift();
-    }
+  /* knob */
+  const NS='http://www.w3.org/2000/svg',ticks=[];
+  const mk=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);kv.appendChild(e);return e};
+  for(let i=0;i<=36;i++){const th=(-135+270*i/36)*Math.PI/180,r1=68,r2=74+12*i/36;
+    ticks.push(mk('line',{x1:100+r1*Math.sin(th),y1:96-r1*Math.cos(th),x2:100+r2*Math.sin(th),y2:96-r2*Math.cos(th),'stroke-width':2.5}))}
+  mk('circle',{cx:100,cy:96,r:52}).style.fill='var(--fg)';
+  const ind=mk('line',{x1:100,y1:50,x2:100,y2:66,'stroke-width':5,'stroke-linecap':'round'});ind.style.stroke='var(--bg)';
+  function updK(){ind.setAttribute('transform',`rotate(${-135+270*sv} 100 96)`);
+    ticks.forEach((t,i)=>{const on=i/36<=sv;t.style.stroke=on?'var(--accent)':'var(--muted)';t.style.opacity=on?1:.4});
+    kt.textContent='Velocidad ×'+(.05*Math.pow(30,sv)).toFixed(2)}
+  function setSv(v){sv=Math.min(1,Math.max(0,v));updK()}
+  function fromPtr(e){const r=knob.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height*.48);
+    let d=Math.atan2(dx,-dy)*180/Math.PI;if(d>135)d=135;if(d<-135)d=-135;setSv((d+135)/270)}
+  let kd=false;knob.onpointerdown=e=>{kd=true;knob.setPointerCapture(e.pointerId);fromPtr(e)};
+  knob.onpointermove=e=>{if(kd)fromPtr(e)};knob.onpointerup=knob.onpointercancel=()=>kd=false;
+  updK();
 
-    function drawGrid() {
-      g.fillStyle = '#ffffff';
-      g.fillRect(0, 0, W, H);
-      const gs = 40, ox = X(0), oy = Y(0);
-      g.lineWidth = 1;
-      g.strokeStyle = '#d4d9e1';
-      g.beginPath();
-      for (let gx = ox % gs; gx <= W; gx += gs) { g.moveTo(gx, 0); g.lineTo(gx, H); }
-      for (let gy = oy % gs; gy <= H; gy += gs) { g.moveTo(0, gy); g.lineTo(W, gy); }
-      g.stroke();
-      g.strokeStyle = '#1b1a2e';
-      g.lineWidth = 2;
-      g.beginPath();
-      g.moveTo(0, oy); g.lineTo(W, oy);
-      g.moveTo(ox, 0); g.lineTo(ox, H);
-      g.stroke();
-      g.fillStyle = '#1b1a2e';
-      g.font = '15px Helvetica Neue,Arial,sans-serif';
-      g.fillText('x', X(1) - 4, oy + 20);
-      g.fillText('costo', ox + 8, 40);
-    }
+  addEventListener('resize',size);size();reset();setPaused(true);
+  let acc=0;(function loop(){if(!drawing&&!paused){if(T<.006){if(++hold>100)reset()}else{acc+=.05*Math.pow(30,sv);while(acc>=1){step();acc--}}}draw();requestAnimationFrame(loop)})();
 
-    function draw() {
-      const cs = getComputedStyle(document.documentElement);
-      let fg = cs.getPropertyValue('--fg').trim();
-      let mu = cs.getPropertyValue('--muted').trim();
-      let ac = cs.getPropertyValue('--accent').trim();
-      g.clearRect(0, 0, W, H);
-      g.font = '15px Helvetica Neue,Arial,sans-serif';
-      g.lineJoin = 'round';
+  return{getState:()=>({L:L.slice(),x,T,best,drawing}),setLandscape:a=>{if(a?.length===N+1)L=a.slice()}}
+}
 
-      if (grid) {
-        fg = '#1b1a2e'; mu = '#6b6880'; ac = '#e4572e';
-        drawGrid();
-      }
+/* ===== HOST / PLAYER ===== */
+const room=new URLSearchParams(location.search).get('room');
+if(room){document.getElementById('host-ui').hidden=true;document.getElementById('player-ui').hidden=false;playerMode()}
+else hostMode();
 
-      if (drawing) {
-        g.strokeStyle = ac;
-        g.lineWidth = 5;
-        g.beginPath();
-        let f = true;
-        for (let i = 0; i <= N; i++) if (D[i] !== undefined) {
-          const px = X(i / N), py = Y(D[i]);
-          f ? g.moveTo(px, py) : g.lineTo(px, py);
-          f = false;
-        }
-        g.stroke();
-        g.fillStyle = mu;
-        g.fillText(D.some(v => v !== undefined) ? 'Suelta para aplicar tu curva' : 'Arrastra de lado a lado', padL, 28);
-        return;
-      }
-
-      g.strokeStyle = mu;
-      g.lineWidth = 4;
-      g.beginPath();
-      for (let i = 0; i <= N; i++) {
-        const px = X(i / N), py = Y(L[i]);
-        i ? g.lineTo(px, py) : g.moveTo(px, py);
-      }
-      g.stroke();
-
-      trail.forEach((v, i) => {
-        g.fillStyle = 'rgba(240,138,93,' + (i / trail.length * .5) + ')';
-        g.beginPath();
-        g.arc(X(v), Y(lvl(v)), 5, 0, 7);
-        g.fill();
-      });
-
-      g.strokeStyle = fg;
-      g.lineWidth = 3;
-      g.beginPath();
-      g.arc(X(best), Y(lvl(best)), 15, 0, 7);
-      g.stroke();
-
-      g.fillStyle = ac;
-      g.beginPath();
-      g.arc(X(x), Y(lvl(x)), 10, 0, 7);
-      g.fill();
-
-      const bx = W - 60, bw = 24, bh = H - padT - padB;
-      g.strokeStyle = mu;
-      g.lineWidth = 2;
-      g.strokeRect(bx, padT, bw, bh);
-      g.fillStyle = ac;
-      const h = bh * T / T0;
-      g.fillRect(bx, padT + bh - h, bw, h);
-      g.fillStyle = fg;
-      g.fillText('T = ' + T.toFixed(3), padL, 28);
-      g.fillText('T', bx + 6, H - 14);
-      if (mt > 0) {
-        g.fillStyle = ac;
-        g.fillText(msg, padL + 100, 28);
-        mt--;
-      }
-    }
-
-    function pt(e) {
-      const r = c.getBoundingClientRect();
-      const v = Math.min(1, Math.max(0, (e.clientX - r.left - padL) / (W - padL - padR)));
-      const l = Math.min(1, Math.max(0, (H - padB - (e.clientY - r.top)) / (H - padT - padB)));
-      return [Math.round(v * N), l];
-    }
-
-    c.addEventListener('pointerdown', e => {
-      if (!drawing) return;
-      down = true;
-      c.setPointerCapture(e.pointerId);
-      last = pt(e);
-      D[last[0]] = last[1];
+function hostMode(){
+  const sim=createSim('c','knob','kv','kt','draw','pause','reset','grid',{dE:'v-dE',T:'v-T',P:'v-P',T2:'v-T2',Tnext:'v-Tnext'});
+  const players={},saved=[];
+  const id='rec'+Math.random().toString(36).slice(2,7);
+  const peer=new Peer(id);
+  function base(){return location.protocol==='file:'?'':location.origin+location.pathname}
+  function drawQR(){const el=document.getElementById('qr');el.innerHTML='';
+    const u=base()+'?room='+id;document.getElementById('h-url').textContent=u||'Sube el archivo a un hosting';
+    if(u)new QRCode(el,{text:u,width:130,height:130})}
+  peer.on('open',drawQR);
+  peer.on('connection',conn=>{
+    conn.on('data',m=>{
+      if(m.t==='join'){const name=(m.name||'Anónimo').trim().slice(0,20);
+        if(players[name]?.conn?.open)players[name].conn.close();
+        players[name]={conn,state:null,name};conn.pk=name;conn.send({t:'joined'});renderPlayers()}
+      else if(m.t==='state'&&conn.pk){const p=players[conn.pk];if(p){p.state=m.s;updateMini(p)}}
+      else if(m.t==='save'&&conn.pk&&m.L){saved.push({name:players[conn.pk].name,L:m.L});renderSaved()}
     });
-    c.addEventListener('pointermove', e => {
-      if (!drawing || !down) return;
-      const p = pt(e);
-      if (p[0] === last[0]) D[p[0]] = p[1];
-      else {
-        const a = Math.min(last[0], p[0]), b = Math.max(last[0], p[0]);
-        for (let i = a; i <= b; i++) {
-          const t = (i - last[0]) / (p[0] - last[0] || 1);
-          D[i] = last[1] + (p[1] - last[1]) * t;
-        }
-      }
-      last = p;
-    });
-    function finish() {
-      if (!drawing || !down) return;
-      down = false;
-      const idx = [];
-      for (let i = 0; i <= N; i++) if (D[i] !== undefined) idx.push(i);
-      if (idx.length < 20) { D = []; return; }
-      const a = idx[0], b = idx[idx.length - 1], nl = new Array(N + 1);
-      let k = 0;
-      for (let i = 0; i <= N; i++) {
-        if (i <= a) nl[i] = D[a];
-        else if (i >= b) nl[i] = D[b];
-        else {
-          while (idx[k + 1] < i) k++;
-          const i0 = idx[k], i1 = idx[k + 1], t = (i - i0) / (i1 - i0);
-          nl[i] = D[i0] + (D[i1] - D[i0]) * t;
-        }
-      }
-      L = nl;
-      setDrawing(false);
-      setPaused(false);
-      reset();
-    }
-    c.addEventListener('pointerup', finish);
-    c.addEventListener('pointercancel', finish);
+    conn.on('close',()=>{for(const k in players)if(players[k].conn===conn){delete players[k];renderPlayers();break}});
+  });
 
-    bD.addEventListener('click', () => setDrawing(!drawing));
-    bP.addEventListener('click', () => setPaused(!paused));
-    bR.addEventListener('click', () => {
-      L = def.slice();
-      setDrawing(false);
-      setPaused(false);
-      reset();
-    });
-    // Botón grid independiente (no se ve afectado por Dibujar)
-    bG.addEventListener('click', () => {
-      grid = !grid;
-      bG.setAttribute('aria-pressed', grid);
-    });
+  function renderPlayers(){const box=document.getElementById('players');box.innerHTML='';
+    document.getElementById('h-n').textContent=Object.keys(players).length+' conectados';
+    Object.values(players).forEach(p=>{const div=document.createElement('div');div.className='mini';
+      div.innerHTML=`<h3>${esc(p.name)}</h3><canvas width="360" height="160"></canvas>`;
+      p.mini=div.querySelector('canvas');p.ctx=p.mini.getContext('2d');
+      div.onclick=()=>showBig(p);box.appendChild(div);if(p.state)updateMini(p)})}
+  function updateMini(p){if(!p.ctx||!p.state)return;const ctx=p.ctx,w=p.mini.width,h=p.mini.height,L=p.state.L||def;
+    ctx.clearRect(0,0,w,h);ctx.strokeStyle='#888';ctx.lineWidth=2.5;ctx.beginPath();
+    for(let i=0;i<=N;i++){const px=i/N*w,py=h-12-L[i]*(h-24);i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.stroke();
+    if(p.state.x!=null){ctx.fillStyle='#e4572e';ctx.beginPath();ctx.arc(p.state.x*w,h-12-(L[Math.round(p.state.x*N)]||.5)*(h-24),6,0,7);ctx.fill()}}
+  function showBig(p){const bv=document.getElementById('bigview'),bc=document.getElementById('big-c'),bg=bc.getContext('2d');
+    document.getElementById('big-name').textContent=p.name;bv.hidden=false;
+    (function render(){if(bv.hidden)return;const s=p.state;if(!s){requestAnimationFrame(render);return}
+      const W=bc.clientWidth||680,H=Math.round(W*.48);bc.width=W;bc.height=H;const L=s.L||def;
+      bg.clearRect(0,0,W,H);bg.strokeStyle='#888';bg.lineWidth=3.5;bg.beginPath();
+      for(let i=0;i<=N;i++){const px=24+i/N*(W-70),py=H-30-L[i]*(H-60);i?bg.lineTo(px,py):bg.moveTo(px,py)}bg.stroke();
+      if(s.x!=null){bg.fillStyle='#e4572e';bg.beginPath();bg.arc(24+s.x*(W-70),H-30-(L[Math.round(s.x*N)]||.5)*(H-60),11,0,7);bg.fill()}
+      bg.fillStyle='#333';bg.font='15px system-ui';bg.fillText('T = '+(s.T||0).toFixed(3),24,24);requestAnimationFrame(render)})()}
+  document.getElementById('big-close').onclick=()=>document.getElementById('bigview').hidden=true;
 
-    // Knob
-    const NS = 'http://www.w3.org/2000/svg';
-    const ticks = [];
-    const mk = (t, a) => {
-      const e = document.createElementNS(NS, t);
-      for (const k in a) e.setAttribute(k, a[k]);
-      kv.appendChild(e);
-      return e;
-    };
-    for (let i = 0; i <= 40; i++) {
-      const th = (-135 + 270 * i / 40) * Math.PI / 180, r1 = 70, r2 = 76 + 14 * i / 40;
-      ticks.push(mk('line', {
-        x1: 100 + r1 * Math.sin(th), y1: 96 - r1 * Math.cos(th),
-        x2: 100 + r2 * Math.sin(th), y2: 96 - r2 * Math.cos(th),
-        'stroke-width': 3
-      }));
-    }
-    const cc = mk('circle', { cx: 100, cy: 96, r: 56 });
-    cc.style.fill = 'var(--fg)';
-    const ind = mk('line', { x1: 100, y1: 48, x2: 100, y2: 66, 'stroke-width': 6, 'stroke-linecap': 'round' });
-    ind.style.stroke = 'var(--bg)';
-    const lm = mk('text', { x: 34, y: 192, 'font-size': 28, 'font-weight': 700, 'text-anchor': 'middle' });
-    lm.textContent = '−'; lm.style.fill = 'var(--fg)';
-    const lp = mk('text', { x: 166, y: 192, 'font-size': 28, 'font-weight': 700, 'text-anchor': 'middle' });
-    lp.textContent = '+'; lp.style.fill = 'var(--fg)';
+  function renderSaved(){const box=document.getElementById('saved-list');box.innerHTML='<h3 style="margin:16px 0 8px">Dibujos enviados</h3>';
+    saved.forEach(item=>{const div=document.createElement('div');div.style.cssText='display:flex;align-items:center;gap:10px;margin:8px 0';
+      div.innerHTML=`<canvas width="200" height="70"></canvas><b>${esc(item.name)}</b>`;
+      const cx=div.querySelector('canvas').getContext('2d');cx.strokeStyle='#e4572e';cx.lineWidth=2;cx.beginPath();
+      item.L.forEach((v,j)=>{const px=j/N*200,py=60-v*50;j?cx.lineTo(px,py):cx.moveTo(px,py)});cx.stroke();box.appendChild(div)})}
+  document.getElementById('btn-save').onclick=()=>{if(!saved.length){alert('No hay dibujos enviados');return}
+    let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dibujos</title><style>body{font-family:system-ui;margin:24px}.item{margin:16px 0}</style></head><body><h1>Dibujos – Recocido</h1><p>${new Date().toLocaleString('es-MX')}</p>`;
+    saved.forEach(item=>{const t=document.createElement('canvas');t.width=480;t.height=160;const tx=t.getContext('2d');
+      tx.fillStyle='#fff';tx.fillRect(0,0,480,160);tx.strokeStyle='#e4572e';tx.lineWidth=3;tx.beginPath();
+      item.L.forEach((v,j)=>{const px=10+j/N*460,py=140-v*120;j?tx.lineTo(px,py):tx.moveTo(px,py)});tx.stroke();
+      html+=`<div class="item"><h3>${esc(item.name)}</h3><img src="${t.toDataURL()}"></div>`});
+    html+='</body></html>';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    a.download='dibujos-recocido.html';a.click()};
+  function esc(s){return String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';')}
+}
 
-    function upd() {
-      const deg = -135 + 270 * sv;
-      ind.setAttribute('transform', 'rotate(' + deg + ' 100 96)');
-      ticks.forEach((t, i) => {
-        const on = i / 40 <= sv;
-        t.style.stroke = on ? 'var(--accent)' : 'var(--muted)';
-        t.style.opacity = on ? 1 : .45;
-      });
-      kt.textContent = 'Velocidad ×' + (.05 * Math.pow(30, sv)).toFixed(2);
-      knob.setAttribute('aria-valuenow', Math.round(sv * 100));
-    }
-    function setSv(v) { sv = Math.min(1, Math.max(0, v)); upd(); }
-    function fromPtr(e) {
-      const r = knob.getBoundingClientRect();
-      const dx = e.clientX - (r.left + r.width / 2);
-      const dy = e.clientY - (r.top + r.height * .48);
-      let d = Math.atan2(dx, -dy) * 180 / Math.PI;
-      if (d > 135) d = 135;
-      if (d < -135) d = -135;
-      setSv((d + 135) / 270);
-    }
-    let kd = false;
-    knob.addEventListener('pointerdown', e => { kd = true; knob.setPointerCapture(e.pointerId); fromPtr(e); });
-    knob.addEventListener('pointermove', e => { if (kd) fromPtr(e); });
-    knob.addEventListener('pointerup', () => { kd = false; });
-    knob.addEventListener('pointercancel', () => { kd = false; });
-    knob.addEventListener('keydown', e => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { setSv(sv + .05); e.preventDefault(); }
-      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { setSv(sv - .05); e.preventDefault(); }
-    });
-    knob.addEventListener('wheel', e => { e.preventDefault(); setSv(sv + (e.deltaY < 0 ? .04 : -.04)); }, { passive: false });
-    upd();
-
-    addEventListener('resize', size);
-    size();
-    reset();
-
-    let acc = 0;
-    function loop() {
-      if (!drawing && !paused) {
-        if (T < .006) {
-          if (++hold > 120) reset();
-        } else {
-          acc += .05 * Math.pow(30, sv);
-          while (acc >= 1) { step(); acc--; }
-        }
-      }
-      draw();
-      requestAnimationFrame(loop);
-    }
-    loop();
-
-    // API pública
-    return {
-      getState: () => ({
-        L: L.slice(),
-        x, T, best,
-        trail: trail.slice(),
-        drawing, grid, paused, sv
-      }),
-      setLandscape: (arr) => { if (arr && arr.length === N + 1) L = arr.slice(); },
-      canvas: c,
-      forceDraw: draw
-    };
-  }
-
-  // ================== HOST / PLAYER ==================
-  const room = new URLSearchParams(location.search).get('room');
-  const isPlayer = !!room;
-
-  if (isPlayer) {
-    document.getElementById('host-ui').hidden = true;
-    document.getElementById('player-ui').hidden = false;
-    playerMode();
-  } else {
-    hostMode();
-  }
-
-  // ---------- HOST ----------
-  function hostMode() {
-    const sim = createSim('c', 'knob', 'kv', 'kt', 'draw', 'pause', 'reset', 'grid');
-    const players = {}; // name -> {conn, state, miniCanvas, lastUpdate}
-    const saved = [];   // {name, L}
-
-    const id = 'rec' + Math.random().toString(36).slice(2, 7);
-    const peer = new Peer(id);
-
-    function base() {
-      if (location.protocol === 'file:') return document.getElementById('base').value.trim().split('?')[0].split('#')[0];
-      return location.origin + location.pathname;
-    }
-    function drawQR() {
-      const el = document.getElementById('qr');
-      el.innerHTML = '';
-      const b = base();
-      if (!b) { document.getElementById('h-url').textContent = ''; return; }
-      const u = b + '?room=' + id;
-      document.getElementById('h-url').textContent = u;
-      new QRCode(el, { text: u, width: 140, height: 140 });
-    }
-
-    peer.on('open', () => {
-      if (location.protocol === 'file:') {
-        document.getElementById('h-file').hidden = false;
-        document.getElementById('base').oninput = drawQR;
-      }
-      drawQR();
-    });
-    peer.on('error', e => console.warn('Peer error', e));
-    peer.on('disconnected', () => peer.reconnect());
-
-    peer.on('connection', conn => {
-      conn.on('data', m => {
-        if (m.t === 'join') {
-          const name = String(m.name || '').trim().slice(0, 20) || 'Anónimo';
-          if (players[name] && players[name].conn && players[name].conn.open) {
-            players[name].conn.close();
-          }
-          players[name] = { conn, state: null, name };
-          conn.send({ t: 'joined' });
-          renderPlayers();
-        } else if (m.t === 'state' && conn.pk) {
-          const p = players[conn.pk];
-          if (p) {
-            p.state = m.s;
-            p.lastUpdate = Date.now();
-            updateMini(p);
-          }
-        } else if (m.t === 'save' && conn.pk) {
-          const p = players[conn.pk];
-          if (p && m.L) {
-            saved.push({ name: p.name, L: m.L });
-            renderSaved();
-          }
-        }
-      });
-      conn.on('open', () => {});
-      conn.on('close', () => {
-        for (const k in players) {
-          if (players[k].conn === conn) {
-            delete players[k];
-            renderPlayers();
-            break;
-          }
-        }
-      });
-    });
-
-    // Cuando llega el nombre real lo asociamos
-    // (el jugador manda join con nombre)
-    // Ajustamos pk
-    const origOn = peer.on.bind(peer);
-    // Ya está manejado arriba
-
-    function renderPlayers() {
-      const box = document.getElementById('players');
-      box.innerHTML = '';
-      const names = Object.keys(players);
-      document.getElementById('h-n').textContent = names.length + ' conectados';
-
-      names.forEach(name => {
-        const p = players[name];
-        p.conn.pk = name; // por si acaso
-        const div = document.createElement('div');
-        div.className = 'mini';
-        div.dataset.name = name;
-        div.innerHTML = `<h3>${esc(name)}</h3><canvas width="400" height="200"></canvas>`;
-        const mc = div.querySelector('canvas');
-        p.mini = mc;
-        p.miniCtx = mc.getContext('2d');
-        div.onclick = () => showBig(p);
-        box.appendChild(div);
-        if (p.state) updateMini(p);
-      });
-    }
-
-    function updateMini(p) {
-      if (!p.miniCtx || !p.state) return;
-      const ctx = p.miniCtx;
-      const w = p.mini.width, h = p.mini.height;
-      ctx.clearRect(0, 0, w, h);
-      const s = p.state;
-      const L = s.L || def;
-      // dibujo simplificado
-      ctx.strokeStyle = '#6b6880';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      for (let i = 0; i <= N; i++) {
-        const px = (i / N) * w;
-        const py = h - 20 - L[i] * (h - 40);
-        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-      }
-      ctx.stroke();
-      // punto
-      if (s.x != null) {
-        const px = s.x * w;
-        const py = h - 20 - (L[Math.round(s.x * N)] || 0.5) * (h - 40);
-        ctx.fillStyle = '#e4572e';
-        ctx.beginPath();
-        ctx.arc(px, py, 7, 0, 7);
-        ctx.fill();
-      }
-    }
-
-    function showBig(p) {
-      const bv = document.getElementById('bigview');
-      const bc = document.getElementById('big-c');
-      const bg = bc.getContext('2d');
-      document.getElementById('big-name').textContent = p.name;
-      bv.hidden = false;
-
-      function render() {
-        if (bv.hidden) return;
-        const s = p.state;
-        if (!s) { requestAnimationFrame(render); return; }
-        const W = bc.clientWidth || 700;
-        const H = Math.round(W * .5);
-        bc.width = W;
-        bc.height = H;
-        // reutilizamos lógica simple
-        const L = s.L || def;
-        bg.clearRect(0, 0, W, H);
-        bg.strokeStyle = '#6b6880';
-        bg.lineWidth = 4;
-        bg.beginPath();
-        for (let i = 0; i <= N; i++) {
-          const px = 30 + (i / N) * (W - 80);
-          const py = H - 40 - L[i] * (H - 80);
-          i ? bg.lineTo(px, py) : bg.moveTo(px, py);
-        }
-        bg.stroke();
-        if (s.x != null) {
-          const px = 30 + s.x * (W - 80);
-          const py = H - 40 - (L[Math.round(s.x * N)] || 0.5) * (H - 80);
-          bg.fillStyle = '#e4572e';
-          bg.beginPath();
-          bg.arc(px, py, 12, 0, 7);
-          bg.fill();
-        }
-        bg.fillStyle = '#1b1a2e';
-        bg.font = '16px sans-serif';
-        bg.fillText('T = ' + (s.T || 0).toFixed(3), 30, 28);
-        requestAnimationFrame(render);
-      }
-      render();
-    }
-    document.getElementById('big-close').onclick = () => {
-      document.getElementById('bigview').hidden = true;
-    };
-
-    function renderSaved() {
-      const box = document.getElementById('saved-list');
-      box.innerHTML = '<h3>Dibujos enviados</h3>';
-      saved.forEach((item, i) => {
-        const div = document.createElement('div');
-        div.className = 'item';
-        div.innerHTML = `<canvas width="240" height="80"></canvas><b>${esc(item.name)}</b>`;
-        const cv = div.querySelector('canvas');
-        const cx = cv.getContext('2d');
-        cx.strokeStyle = '#e4572e';
-        cx.lineWidth = 2;
-        cx.beginPath();
-        item.L.forEach((v, j) => {
-          const px = (j / N) * 240;
-          const py = 70 - v * 60;
-          j ? cx.lineTo(px, py) : cx.moveTo(px, py);
-        });
-        cx.stroke();
-        box.appendChild(div);
-      });
-    }
-
-    document.getElementById('btn-save').onclick = () => {
-      if (saved.length === 0) {
-        alert('Aún no hay dibujos enviados.');
-        return;
-      }
-      const fecha = new Date().toLocaleString('es-MX');
-      let html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Dibujos – Recocido</title>
-        <style>body{font-family:system-ui;margin:24px}h1{color:#e4572e}.item{margin:20px 0;padding:12px;border:1px solid #ddd;border-radius:10px}
-        canvas{width:100%;max-width:500px;height:auto;background:#f9f9f9;border-radius:8px}</style></head><body>
-        <h1>Dibujos del recocido simulado</h1><p>${fecha} · ${saved.length} participantes</p>`;
-      saved.forEach(item => {
-        // generamos un canvas temporal para exportar imagen
-        const tmp = document.createElement('canvas');
-        tmp.width = 500; tmp.height = 180;
-        const tx = tmp.getContext('2d');
-        tx.fillStyle = '#fff';
-        tx.fillRect(0, 0, 500, 180);
-        tx.strokeStyle = '#e4572e';
-        tx.lineWidth = 3;
-        tx.beginPath();
-        item.L.forEach((v, j) => {
-          const px = (j / N) * 480 + 10;
-          const py = 160 - v * 140;
-          j ? tx.lineTo(px, py) : tx.moveTo(px, py);
-        });
-        tx.stroke();
-        const data = tmp.toDataURL('image/png');
-        html += `<div class="item"><h3>${esc(item.name)}</h3><img src="${data}" alt="dibujo de ${esc(item.name)}"></div>`;
-      });
-      html += '</body></html>';
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-      a.download = 'dibujos-recocido.html';
-      a.click();
-    };
-
-    function esc(s) {
-      return String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
-    }
-  }
-
-  // ---------- PLAYER ----------
-  function playerMode() {
-    let conn = null, peer = null, joined = false;
-    const nameInput = document.getElementById('p-name');
-    try { nameInput.value = localStorage.getItem('rec_name') || ''; } catch (e) {}
-
-    document.getElementById('p-go').onclick = () => {
-      const name = nameInput.value.trim();
-      if (!name) return;
-      try { localStorage.setItem('rec_name', name); } catch (e) {}
-      document.getElementById('p-go').disabled = true;
-      document.getElementById('p-msg').textContent = 'Conectando…';
-
-      peer = new Peer();
-      peer.on('error', e => {
-        document.getElementById('p-msg').textContent = 'Error de conexión. Revisa que el anfitrión esté abierto.';
-        document.getElementById('p-go').disabled = false;
-      });
-      peer.on('open', () => {
-        conn = peer.connect(room, { reliable: true });
-        conn.on('open', () => {
-          conn.send({ t: 'join', name });
-        });
-        conn.on('data', m => {
-          if (m.t === 'joined') {
-            joined = true;
-            document.getElementById('p-join').hidden = true;
-            document.getElementById('p-sim').hidden = false;
-            document.getElementById('p-title-name').textContent = name;
-            startPlayerSim(conn, name);
-          }
-        });
-        conn.on('close', () => {
-          document.getElementById('p-msg').textContent = 'Se perdió la conexión.';
-          document.getElementById('p-go').disabled = false;
-          document.getElementById('p-join').hidden = false;
-          document.getElementById('p-sim').hidden = true;
-        });
-      });
-    };
-  }
-
-  function startPlayerSim(conn, name) {
-    const sim = createSim('pc', 'p-knob', 'p-kv', 'p-kt', 'p-draw', 'p-pause', 'p-reset', 'p-grid');
-
-    // Enviar estado lo más rápido posible (~10-12 veces por segundo)
-    setInterval(() => {
-      if (!conn || !conn.open) return;
-      const s = sim.getState();
-      // enviamos solo lo necesario para aligerar
-      conn.send({
-        t: 'state',
-        s: {
-          L: s.L,
-          x: s.x,
-          T: s.T,
-          best: s.best,
-          drawing: s.drawing
-        }
-      });
-    }, 90);
-
-    document.getElementById('p-send').onclick = () => {
-      const s = sim.getState();
-      conn.send({ t: 'save', L: s.L });
-      document.getElementById('p-status').textContent = '¡Dibujo enviado!';
-      setTimeout(() => document.getElementById('p-status').textContent = '', 3000);
-    };
-  }
+function playerMode(){
+  const nameInput=document.getElementById('p-name');
+  try{nameInput.value=localStorage.getItem('rec_name')||''}catch(e){}
+  document.getElementById('p-go').onclick=()=>{
+    const name=nameInput.value.trim();if(!name)return;
+    try{localStorage.setItem('rec_name',name)}catch(e){}
+    document.getElementById('p-go').disabled=true;document.getElementById('p-msg').textContent='Conectando…';
+    const peer=new Peer();
+    peer.on('error',()=>{document.getElementById('p-msg').textContent='Error de conexión';document.getElementById('p-go').disabled=false});
+    peer.on('open',()=>{const conn=peer.connect(room,{reliable:true});
+      conn.on('open',()=>conn.send({t:'join',name}));
+      conn.on('data',m=>{if(m.t==='joined'){document.getElementById('p-join').hidden=true;document.getElementById('p-sim').hidden=false;
+        document.getElementById('p-title-name').textContent=name;startPlayer(conn)}});
+      conn.on('close',()=>{document.getElementById('p-msg').textContent='Conexión perdida';document.getElementById('p-go').disabled=false;
+        document.getElementById('p-join').hidden=false;document.getElementById('p-sim').hidden=true})})}}
+function startPlayer(conn){
+  const sim=createSim('pc','p-knob','p-kv','p-kt','p-draw','p-pause','p-reset','p-grid',{dE:'pv-dE',T:'pv-T',P:'pv-P',T2:'pv-T2',Tnext:'pv-Tnext'});
+  setInterval(()=>{if(conn.open){const s=sim.getState();conn.send({t:'state',s:{L:s.L,x:s.x,T:s.T,drawing:s.drawing}})}},90);
+  document.getElementById('p-send').onclick=()=>{conn.send({t:'save',L:sim.getState().L});
+    document.getElementById('p-status').textContent='¡Enviado!';setTimeout(()=>document.getElementById('p-status').textContent='',2500)}}
 })();
 </script>
 </body>
